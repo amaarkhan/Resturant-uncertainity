@@ -1,0 +1,25 @@
+{
+  "name": "restaurant-uncertainty-mvp",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "services/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace services/api",
+    "dev:customer": "npm run dev --workspace apps/customer-web",
+    "dev:admin": "npm run dev --workspace apps/admin-web",
+    "dev:api": "npm run dev --workspace services/api",
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "db:generate": "npm run db:generate --workspace services/api",
+    "db:migrate": "npm run db:migrate --workspace services/api",
+    "db:seed": "npm run db:seed --workspace services/api",
+    "db:setup": "npm run db:generate ; npm run db:migrate ; npm run db:seed"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,67 @@
+name: CI-CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: file:./dev.db
+      JWT_SECRET: ci-secret
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Run Prisma migration
+        run: npm run db:migrate
+
+      - name: Seed demo data
+        run: npm run db:seed
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: ci
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger API deploy
+        if: secrets.API_DEPLOY_HOOK != ''
+        run: curl -X POST "$API_DEPLOY_HOOK"
+        env:
+          API_DEPLOY_HOOK: ${{ secrets.API_DEPLOY_HOOK }}
+
+      - name: Trigger Customer deploy
+        if: secrets.CUSTOMER_DEPLOY_HOOK != ''
+        run: curl -X POST "$CUSTOMER_DEPLOY_HOOK"
+        env:
+          CUSTOMER_DEPLOY_HOOK: ${{ secrets.CUSTOMER_DEPLOY_HOOK }}
+
+      - name: Trigger Admin deploy
+        if: secrets.ADMIN_DEPLOY_HOOK != ''
+        run: curl -X POST "$ADMIN_DEPLOY_HOOK"
+        env:
+          ADMIN_DEPLOY_HOOK: ${{ secrets.ADMIN_DEPLOY_HOOK }}

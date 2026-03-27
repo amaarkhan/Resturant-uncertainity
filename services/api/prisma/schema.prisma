@@ -1,0 +1,106 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String      @id @default(cuid())
+  fullName     String
+  email        String      @unique
+  passwordHash String
+  role         String
+  restaurantId String?
+  restaurant   Restaurant? @relation(fields: [restaurantId], references: [id])
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model Restaurant {
+  id                 String              @id @default(cuid())
+  name               String
+  city               String
+  timezone           String
+  active             Boolean             @default(true)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  users              User[]
+  menuItems          MenuItem[]
+  recommendationRuns RecommendationRun[]
+  outcomes           DailyOutcome[]
+  feedback           QuickFeedback[]
+}
+
+model MenuItem {
+  id              String   @id @default(cuid())
+  restaurantId    String
+  restaurant      Restaurant @relation(fields: [restaurantId], references: [id])
+  name            String
+  unit            String
+  baselinePrepQty Int
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([restaurantId])
+}
+
+model RecommendationRun {
+  id              String   @id @default(cuid())
+  restaurantId    String
+  restaurant      Restaurant @relation(fields: [restaurantId], references: [id])
+  date            String
+  confidenceLevel String
+  reasonSummary   String
+  usedFallback    Boolean
+  signalsUsed     String
+  createdAt       DateTime @default(now())
+  items           RecommendationItem[]
+
+  @@index([restaurantId, date])
+}
+
+model RecommendationItem {
+  id                  String   @id @default(cuid())
+  recommendationRunId String
+  recommendationRun   RecommendationRun @relation(fields: [recommendationRunId], references: [id])
+  menuItemId          String
+  itemName            String
+  baselineQty         Int
+  recommendedQty      Int
+  adjustmentFactor    Float
+  reason              String
+}
+
+model DailyOutcome {
+  id                    String   @id @default(cuid())
+  restaurantId          String
+  restaurant            Restaurant @relation(fields: [restaurantId], references: [id])
+  date                  String
+  menuItemId            String
+  preparedQty           Int
+  soldQty               Int
+  leftoverQty           Int
+  stockout              Boolean
+  recommendationFollowed Boolean
+  createdAt             DateTime @default(now())
+
+  @@unique([restaurantId, date, menuItemId])
+  @@index([restaurantId, date])
+}
+
+model QuickFeedback {
+  id               String   @id @default(cuid())
+  restaurantId     String
+  restaurant       Restaurant @relation(fields: [restaurantId], references: [id])
+  date             String
+  feedbackType     String
+  confidenceRating Int
+  note             String   @default("")
+  createdAt        DateTime @default(now())
+
+  @@index([restaurantId, date])
+}
