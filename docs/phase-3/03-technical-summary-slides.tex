@@ -1,0 +1,81 @@
+\documentclass[aspectratio=169]{beamer}
+\usetheme{Madrid}
+\usecolortheme{seahorse}
+
+\title{Phase 3 MVP Technical Summary}
+\subtitle{Restaurant Uncertainty MVP}
+\author{AI Product Development Course Project}
+\date{April 2026}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\begin{frame}{1) Product Scope and MVP Boundaries}
+\textbf{Core problem addressed}
+\begin{itemize}
+  \item Small restaurants face daily prep uncertainty without reliable historical sales context.
+\end{itemize}
+
+\textbf{What we built (end-to-end MVP)}
+\begin{itemize}
+  \item Customer web app: recommendation view, outcomes logging, quick feedback.
+  \item Admin web app: restaurants, menu items, users, signal controls, metrics dashboards.
+  \item API + database: recommendation engine, auth, persistence, PMF metric endpoints.
+\end{itemize}
+
+\textbf{What we intentionally did not build}
+\begin{itemize}
+  \item Full POS/inventory/accounting replacement.
+  \item Heavy ML training pipeline and advanced optimization.
+  \item Multi-region, high-scale distributed architecture.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{2) System Overview, Data, and User Value}
+\textbf{System overview}
+\begin{itemize}
+  \item Two React web apps (owner/admin) + one Express API + Prisma + PostgreSQL (Supabase).
+  \item External context integration: OpenMeteo weather signals with fallback behavior.
+\end{itemize}
+
+\textbf{Real user flow (input $\rightarrow$ processing $\rightarrow$ output)}
+\begin{itemize}
+  \item Owner submits context/date $\rightarrow$ API computes item-level prep recommendations.
+  \item Owner logs prepared/sold/leftover/stockout + recommendation-follow signal.
+  \item Admin reviews operations and PMF instrumentation metrics.
+\end{itemize}
+
+\textbf{Output-to-value mapping}
+\begin{itemize}
+  \item Output: recommended quantities + confidence + reason summary.
+  \item User value: lower waste risk, fewer stockouts, better daily prep decisions.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{3) Technical Decisions, Risks, and Assumptions Tested}
+\textbf{Key technical decisions and trade-offs}
+\begin{itemize}
+  \item Rule-based recommendation math for speed, interpretability, and reliable demo behavior.
+  \item JWT role-based auth for clear owner/admin access boundaries.
+  \item Metrics-first schema to enable Phase 4 PMF analysis.
+\end{itemize}
+
+\textbf{Known limitations and failure handling}
+\begin{itemize}
+  \item Limited predictive sophistication vs complex ML approaches.
+  \item At MVP stage, API reliability depends on external signal and DB connectivity quality.
+  \item Low-confidence and fallback states are surfaced to users when signal quality drops.
+\end{itemize}
+
+\textbf{Assumptions this MVP tests}
+\begin{itemize}
+  \item Owners consistently use recommendation flow before prep.
+  \item Recommendations reduce waste/stockout outcomes in practice.
+  \item Users trust outputs enough to continue use and show willingness-to-pay signals.
+\end{itemize}
+\end{frame}
+
+\end{document}
