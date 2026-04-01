@@ -9,7 +9,7 @@ import { fetchContextSignals } from "./externalSignals.js";
 import { buildWindowMetrics, decidePmfDirection, deltaPercent } from "./pmf.js";
 
 const app = express();
-const enableApiMetrics = process.env.ENABLE_API_METRICS === "true" || !process.env.VERCEL;
+const enableApiMetrics = process.env.ENABLE_API_METRICS === "true";
 
 app.use(cors());
 app.options("*", cors());
@@ -42,6 +42,15 @@ function canAccessRestaurant(user, restaurantId) {
   return user.role === "ADMIN" || user.restaurantId === restaurantId;
 }
 
+function withTimeout(promise, ms, message) {
+  let timer;
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message || "Operation timed out")), ms);
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer));
+}
+
 app.get("/health", (req, res) => {
   res.json({
     status: "ok",
@@ -58,7 +67,11 @@ app.post("/api/v1/auth/login", async (req, res) => {
     return res.status(400).json({ error: "email and password are required" });
   }
 
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await withTimeout(
+    prisma.user.findUnique({ where: { email } }),
+    8000,
+    "Database query timed out"
+  );
   if (!user) {
     return res.status(401).json({ error: "Invalid credentials" });
   }
@@ -618,7 +631,8 @@ app.use((err, req, res, next) => {
   const isDbUnavailable =
     err?.name === "PrismaClientInitializationError" ||
     err?.code === "P1001" ||
-    /can't reach database server/i.test(String(err?.message || ""));
+    /can't reach database server/i.test(String(err?.message || "")) ||
+    /database query timed out/i.test(String(err?.message || ""));
 
   console.error(JSON.stringify({
     level: "error",
