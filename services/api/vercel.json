@@ -1,16 +1,21 @@
 {
+  "version": 2,
   "functions": {
-    "api/[...route].js": {
+    "api/index.js": {
       "maxDuration": 30
     },
     "api/health.js": {
       "maxDuration": 10
     }
   },
-  "rewrites": [
+  "routes": [
     {
-      "source": "/health",
-      "destination": "/api/health.js"
+      "src": "/health",
+      "dest": "api/health.js"
+    },
+    {
+      "src": "/api/(.*)",
+      "dest": "api/index.js"
     }
   ]
 }
