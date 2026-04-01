@@ -21,7 +21,7 @@ async function request(path, { method = "GET", body, token } = {}) {
     });
   } catch {
     const apiHint = rawApiBase || "http://localhost:4000";
-    throw new Error(`Cannot reach API (${apiHint}). Start the API or set VITE_API_BASE.`);
+    throw new Error(`Cannot reach API (${apiHint}). Check API deployment health, CORS, and VITE_API_BASE.`);
   }
 
   const payload = await res.text();

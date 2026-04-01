@@ -9,11 +9,17 @@ import { fetchContextSignals } from "./externalSignals.js";
 import { buildWindowMetrics, decidePmfDirection, deltaPercent } from "./pmf.js";
 
 const app = express();
+const enableApiMetrics = process.env.ENABLE_API_METRICS === "true" || !process.env.VERCEL;
 
 app.use(cors());
+app.options("*", cors());
 app.use(express.json());
 
 app.use((req, res, next) => {
+  if (!enableApiMetrics || req.method === "OPTIONS") {
+    return next();
+  }
+
   const start = Date.now();
   res.on("finish", () => {
     const latencyMs = Date.now() - start;
@@ -25,7 +31,9 @@ app.use((req, res, next) => {
           statusCode: res.statusCode,
           latencyMs
         }
-      }).catch(console.error);
+      }).catch((error) => {
+        console.error("apiMetric.create failed", error?.message || error);
+      });
     }
   });
   next();
