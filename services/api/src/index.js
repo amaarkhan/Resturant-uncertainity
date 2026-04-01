@@ -1,3 +1,4 @@
+import "express-async-errors";
 import express from "express";
 import cors from "cors";
 import bcrypt from "bcryptjs";
@@ -606,6 +607,11 @@ app.get("/api/v1/admin/dashboard", auth, requireAdmin, async (req, res) => {
 });
 
 app.use((err, req, res, next) => {
+  const isDbUnavailable =
+    err?.name === "PrismaClientInitializationError" ||
+    err?.code === "P1001" ||
+    /can't reach database server/i.test(String(err?.message || ""));
+
   console.error(JSON.stringify({
     level: "error",
     message: err.message,
@@ -614,7 +620,14 @@ app.use((err, req, res, next) => {
     method: req.method,
     timestamp: new Date().toISOString()
   }));
-  res.status(500).json({ error: "Internal server error" });
+
+  if (isDbUnavailable) {
+    return res.status(503).json({
+      error: "Database is unreachable. Verify DATABASE_URL/DIRECT_URL and network access to Supabase."
+    });
+  }
+
+  return res.status(500).json({ error: "Internal server error" });
 });
 
 export default app;

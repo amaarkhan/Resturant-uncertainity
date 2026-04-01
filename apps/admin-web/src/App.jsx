@@ -5,19 +5,36 @@ import {
   Activity, Database
 } from "lucide-react";
 
-const API_BASE = (import.meta.env.VITE_API_BASE || "http://localhost:4000") + "/api/v1";
+const rawApiBase = import.meta.env.VITE_API_BASE?.trim();
+const API_BASE = rawApiBase ? `${rawApiBase.replace(/\/+$/, "")}/api/v1` : "/api/v1";
 
 async function request(path, { method = "GET", body, token } = {}) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: "Bearer " + token } : {})
-    },
-    ...(body ? { body: JSON.stringify(body) } : {})
-  });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.error || "Request failed");
+  let res;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: "Bearer " + token } : {})
+      },
+      ...(body ? { body: JSON.stringify(body) } : {})
+    });
+  } catch {
+    const apiHint = rawApiBase || "http://localhost:4000";
+    throw new Error(`Cannot reach API (${apiHint}). Start the API or set VITE_API_BASE.`);
+  }
+
+  const payload = await res.text();
+  let json = {};
+  if (payload) {
+    try {
+      json = JSON.parse(payload);
+    } catch {
+      if (!res.ok) throw new Error(`Request failed (${res.status})`);
+    }
+  }
+
+  if (!res.ok) throw new Error(json.error || `Request failed (${res.status})`);
   return json;
 }
 
