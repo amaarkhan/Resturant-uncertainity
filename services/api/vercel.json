@@ -1,6 +1,6 @@
 {
   "functions": {
-    "api/index.js": {
+    "api/[...route].js": {
       "maxDuration": 30
     },
     "api/health.js": {
@@ -11,10 +11,6 @@
     {
       "source": "/health",
       "destination": "/api/health.js"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/api/index.js"
     }
   ]
 }
