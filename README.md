@@ -1,97 +1,69 @@
 # Restaurant Uncertainty MVP
 
-Phase 3 MVP for context-aware prep planning in small Pakistani restaurants.
+A highly robust, context-aware preparation planning tool built for small restaurants to minimize food waste and eliminate stockouts using AI-driven external integrations.
 
-## What Is Included
-- Customer-facing web app (daily recommendation, outcomes, feedback)
-- Admin web panel (restaurants, users, menu items, metrics)
-- Backend API (JWT auth, recommendation engine, persistence)
-- Prisma database schema and seed data
-- CI/CD pipeline with deploy hooks
-- Phase 1/2/3 documentation and sign-off artifacts
+Currently functioning up to **Phase 8 (Data, Pilot Readiness & Telemetry)**.
 
-## Prerequisites
-- Node.js 20+
-- npm 10+
+## 🚀 Key Features
+- **Customer-Facing Kitchen Portal**: Daily smart prep recommendations, real-time context configurations (Auto-Detect Weather & Events), and 14-day history visualizations.
+- **Admin Command Center**: Global menu management, restaurant signal routing (weighting/multipliers), and high-density telemetry dashboards.
+- **Backend Analytics Engine**: Custom Express API orchestrating dynamic multipliers, automatically fetching OpenMeteo WMO forecasts, and tracking core business profit margins.
+- **Extensive Metrics**: API reliability tracking (ms latency), usage metrics, and algorithmic fallbacks.
 
-## Install
+## 📁 Repository Structure
+- `apps/customer-web/`: Vite + React UI for the Kitchen Portal.
+- `apps/admin-web/`: Vite + React UI for the isolated System Administrators.
+- `services/api/`: Express API backend, Prisma Schema, OpenMeteo Integrations, and Analytics Interceptors.
+- `docs/pilot_onboarding/`: The official Onboarding guides for Admins and Owners testing the Pilot application.
+
+## 🛠️ Tech Stack
+- **Frontend**: React (Vite), Recharts, Lucide Icons, Vanilla CSS (Dark/Light Design System).
+- **Backend**: Node.js, Express, Prisma ORM, SQLite.
+- **External Integration**: OpenMeteo (Live Forecasting & Geolocation).
+
+## 📥 Installation
+
+1. Clone and install dependencies:
 ```bash
 npm install
 ```
 
-## Database Setup
+2. Push the Database Schema and inject the complete multi-archetype mock histories (Phase 7):
 ```bash
-npm run db:setup
+cd services/api
+npx prisma db push --force-reset
+node prisma/seed.js
 ```
 
-## Run Apps (Three Terminals)
+## 🚀 Running Locally
+
+You'll need three separate terminal processes to run the full Monorepo:
+1. **API Backend** (Port 4000):
 ```bash
-npm run dev:api
+cd services/api && node src/index.js
+```
+2. **Customer App** (Port 5173):
+```bash
 npm run dev:customer
-npm run dev:admin
+```
+3. **Admin Dashboard** (Port 5174):
+```bash
+npm run dev --workspace apps/admin-web
 ```
 
-Default ports:
-- API: 4000
-- Customer app: 5173
-- Admin app: 5174
+## 🔐 Demo Credentials
+The Phase 7 database seed creates 3 unique restaurant scenarios (Diner, Food Truck, Student Cafe). Use the following base credentials to explore.
 
-## Demo Credentials
-- Owner: owner@example.com / owner123
-- Admin: admin@example.com / admin123
+- **Kitchen Owner**: `karachi@example.com` / `owner123` (or `weekend@example.com` / `uni@example.com`)
+- **System Admin**: `admin@example.com` / `admin123`
 
-## Build All
+## 🧪 Automated Testing
+Validate the internal math of the recommendation algorithm (Phases 7/8 scenarios):
 ```bash
-npm run build
-```
-
-## Run Tests
-```bash
+cd services/api
 npm run test
 ```
 
-## Project Structure
-- apps/customer-web: customer interface
-- apps/admin-web: admin panel
-- services/api: backend API, Prisma schema, seed, tests
-- docs: phase planning and specs
-
-## Environment Variables
-API env file: services/api/.env
-
-Required keys:
-- DATABASE_URL
-- JWT_SECRET
-- PORT
-
-Template is provided in services/api/.env.example.
-
-## CI/CD
-Workflow file: .github/workflows/ci-cd.yml
-
-Pipeline steps:
-1. Install dependencies
-2. Generate Prisma client
-3. Run migration
-4. Seed data
-5. Lint, test, build
-6. Trigger deployment hooks on main
-
-Set these repository secrets to enable deploy automation:
-- API_DEPLOY_HOOK
-- CUSTOMER_DEPLOY_HOOK
-- ADMIN_DEPLOY_HOOK
-
-## Public URL Access
-This repository is deployment-ready via deploy hooks.
-
-Example production URLs after deployment:
-- Customer: https://<customer-domain>
-- Admin: https://<admin-domain>
-- API: https://<api-domain>
-
-Replace placeholders in your final submission once hosting is configured.
-
-Detailed deployment guide:
-- docs/phase-3/06-deployment-runbook.md
-- docs/phase-3/07-go-live-checklist.md
+## 🚢 CI/CD (Phase 3 Outline)
+Workflow file mappings are present in `.github/workflows/ci-cd.yml`.
+This project is deployment-ready via custom deploy hooks, pending final cloud infrastructure assignment (E.g. Vercel + Supabase).
