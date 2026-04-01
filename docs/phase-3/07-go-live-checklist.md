@@ -2,9 +2,10 @@
 
 ## Deployment Readiness
 - [ ] Repository pushed to GitHub
-- [ ] Render Blueprint deployed from render.yaml
-- [ ] JWT_SECRET configured on API service
-- [ ] API migration executed
+- [ ] Vercel projects created for API, customer, and admin apps
+- [ ] JWT_SECRET configured in Vercel API project
+- [ ] Supabase DATABASE_URL configured in Vercel API project
+- [ ] API schema sync executed (`npm run db:push`)
 - [ ] API seed executed
 
 ## URL Verification

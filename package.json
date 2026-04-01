@@ -16,9 +16,10 @@
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "db:generate": "npm run db:generate --workspace services/api",
+    "db:push": "npm run db:push --workspace services/api",
     "db:migrate": "npm run db:migrate --workspace services/api",
     "db:seed": "npm run db:seed --workspace services/api",
-    "db:setup": "npm run db:generate ; npm run db:migrate ; npm run db:seed"
+    "db:setup": "npm run db:generate ; npm run db:push ; npm run db:seed"
   },
   "engines": {
     "node": ">=20"

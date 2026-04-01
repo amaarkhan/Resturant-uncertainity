@@ -618,6 +618,10 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Internal server error" });
 });
 
-app.listen(PORT, () => {
-  console.log(`API running on http://localhost:${PORT}`);
-});
+export default app;
+
+if (process.env.VERCEL !== "1") {
+  app.listen(PORT, () => {
+    console.log(`API running on http://localhost:${PORT}`);
+  });
+}

@@ -106,6 +106,7 @@ async function main() {
         }
       });
 
+      let hadStockout = false;
       for (const item of items) {
         let prep = item.baselinePrepQty;
         if (isExam) prep = Math.floor(prep * 1.5); // Uni cafe prep up
@@ -114,6 +115,7 @@ async function main() {
 
         const stockoutRisk = Math.random();
         const isStockout = stockoutRisk > 0.85;
+        hadStockout = hadStockout || isStockout;
         let sold = isStockout ? prep : Math.floor(prep * (0.6 + Math.random() * 0.35));
         let left = prep - sold;
 
@@ -137,8 +139,8 @@ async function main() {
           data: {
             restaurantId: r.id,
             date: dateStr,
-            feedbackType: isStockout ? "stockout" : "balanced",
-            confidenceRating: isStockout ? 3 : 5,
+            feedbackType: hadStockout ? "stockout" : "balanced",
+            confidenceRating: hadStockout ? 3 : 5,
             note: "Phase 7 Seed feedback"
           }
         });

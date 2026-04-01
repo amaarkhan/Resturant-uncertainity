@@ -4,33 +4,39 @@
 Deploy API, customer app, and admin app to publicly accessible URLs.
 
 ## Recommended Hosting (Fastest Path)
-- Render Blueprint using render.yaml in repository root.
+- Vercel for all three apps and Supabase PostgreSQL for data.
 
 ## Prerequisites
 1. Push this project to a GitHub repository.
-2. Create a Render account and connect GitHub.
+2. Create Vercel and Supabase accounts.
 
 ## Step-by-Step Deployment
-1. In Render, click New + and select Blueprint.
-2. Select your repository and branch.
-3. Render will detect render.yaml and create 3 services:
-- restaurant-uncertainty-api
-- restaurant-uncertainty-customer
-- restaurant-uncertainty-admin
-4. Set JWT_SECRET for API service before deploy.
-5. Start deploy.
+1. In Supabase, create a new project.
+2. Copy the Postgres connection string and set it as `DATABASE_URL` for the API.
+3. In Vercel, create three projects from this repository with these root directories:
+- `services/api`
+- `apps/customer-web`
+- `apps/admin-web`
+4. Configure API env vars in Vercel:
+- `DATABASE_URL`
+- `JWT_SECRET`
+- `PORT=4000`
+5. Configure web env vars in Vercel:
+- Customer: `VITE_API_BASE=https://<api-domain>`
+- Admin: `VITE_API_BASE=https://<api-domain>`
+6. Deploy all three projects.
 
 ## Post-Deploy URLs
 Expected URL pattern:
-- API: https://restaurant-uncertainty-api.onrender.com
-- Customer: https://restaurant-uncertainty-customer.onrender.com
-- Admin: https://restaurant-uncertainty-admin.onrender.com
+- API: https://<api-project>.vercel.app
+- Customer: https://<customer-project>.vercel.app
+- Admin: https://<admin-project>.vercel.app
 
 Use your actual generated service URLs in final report.
 
 ## First-Run API Setup
-After first deploy of API service, run one-time commands in Render shell:
-1. npm run db:migrate
+Run one-time commands against Supabase before pilot kickoff:
+1. npm run db:push
 2. npm run db:seed
 
 ## Smoke Test Checklist
@@ -43,12 +49,15 @@ After first deploy of API service, run one-time commands in Render shell:
 
 ## CI/CD Hook Setup (Optional but Recommended)
 To use workflow deploy triggers, add these GitHub repo secrets:
-1. API_DEPLOY_HOOK
-2. CUSTOMER_DEPLOY_HOOK
-3. ADMIN_DEPLOY_HOOK
+1. API_STAGING_DEPLOY_HOOK
+2. CUSTOMER_STAGING_DEPLOY_HOOK
+3. ADMIN_STAGING_DEPLOY_HOOK
+4. API_PROD_DEPLOY_HOOK
+5. CUSTOMER_PROD_DEPLOY_HOOK
+6. ADMIN_PROD_DEPLOY_HOOK
 
-Get hook URLs from each Render service settings.
+Use Vercel deploy hook URLs from each Vercel project.
 
 ## Notes for Course Demo
-- SQLite is acceptable for MVP demo but not ideal for large-scale production.
-- If needed later, migrate Prisma datasource to PostgreSQL for stronger persistence.
+- Supabase provides persistent PostgreSQL for pilot-grade data stability.
+- Keep API and web URLs documented in README and slides before submission.

@@ -19,7 +19,7 @@ If OpenMeteo weather integrations drop out, the app silently falls back to *Base
 
 ## Escalation for Administrators
 If a **P0** is reported:
-1. SSH to the deployment box, check `pm2 logs api`.
-2. Review Prisma Error tracing (`npx prisma studio` optionally).
-3. If SQLite is locked natively, reboot the background node processes.
+1. Open Vercel project logs for the API deployment and inspect the failing request path.
+2. Review Prisma error traces and verify `DATABASE_URL` points to the correct Supabase project.
+3. Check Supabase database health and active connections for saturation or auth issues.
 4. Notify users via WhatsApp Broadcast.

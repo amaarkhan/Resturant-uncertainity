@@ -41,7 +41,7 @@ Define a simple, buildable architecture for the MVP that supports customer recom
 - Database: PostgreSQL.
 - ORM: Prisma.
 - Auth: JWT with role claims.
-- Hosting: Vercel for frontend, Render/Railway/Azure for API and DB.
+- Hosting: Vercel for API and frontend, Supabase for PostgreSQL.
 
 ## Security and Access
 - Roles: OWNER_MANAGER, ADMIN.
