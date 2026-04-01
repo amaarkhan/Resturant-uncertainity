@@ -8,7 +8,6 @@ import { fetchContextSignals } from "./externalSignals.js";
 import { buildWindowMetrics, decidePmfDirection, deltaPercent } from "./pmf.js";
 
 const app = express();
-const PORT = process.env.PORT || 4000;
 
 app.use(cors());
 app.use(express.json());
@@ -619,11 +618,3 @@ app.use((err, req, res, next) => {
 });
 
 export default app;
-
-const isDirectRun = process.argv[1] && process.argv[1].includes("src/index.js");
-
-if (isDirectRun) {
-  app.listen(PORT, () => {
-    console.log(`API running on http://localhost:${PORT}`);
-  });
-}
