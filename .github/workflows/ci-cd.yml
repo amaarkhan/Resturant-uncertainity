@@ -43,25 +43,61 @@ jobs:
       - name: Build
         run: npm run build
 
-  deploy:
+  deploy-staging:
+    name: Deploy to Staging
     if: github.ref == 'refs/heads/main'
     needs: ci
     runs-on: ubuntu-latest
+    environment:
+      name: staging
     steps:
-      - name: Trigger API deploy
-        if: secrets.API_DEPLOY_HOOK != ''
-        run: curl -X POST "$API_DEPLOY_HOOK"
-        env:
-          API_DEPLOY_HOOK: ${{ secrets.API_DEPLOY_HOOK }}
+      - name: Deploy API to Staging
+        if: secrets.API_STAGING_DEPLOY_HOOK != ''
+        run: curl -X POST "${{ secrets.API_STAGING_DEPLOY_HOOK }}"
+      
+      - name: Deploy Customer App to Staging
+        if: secrets.CUSTOMER_STAGING_DEPLOY_HOOK != ''
+        run: curl -X POST "${{ secrets.CUSTOMER_STAGING_DEPLOY_HOOK }}"
+        
+      - name: Deploy Admin Panel to Staging
+        if: secrets.ADMIN_STAGING_DEPLOY_HOOK != ''
+        run: curl -X POST "${{ secrets.ADMIN_STAGING_DEPLOY_HOOK }}"
 
-      - name: Trigger Customer deploy
-        if: secrets.CUSTOMER_DEPLOY_HOOK != ''
-        run: curl -X POST "$CUSTOMER_DEPLOY_HOOK"
-        env:
-          CUSTOMER_DEPLOY_HOOK: ${{ secrets.CUSTOMER_DEPLOY_HOOK }}
+      - name: Verify Staging Health
+        if: secrets.API_STAGING_URL != ''
+        run: |
+          echo "Waiting for deployment to spin up..."
+          sleep 60
+          echo "Checking health endpoint..."
+          curl -f -s "${{ secrets.API_STAGING_URL }}/health" || exit 1
+          echo "Health check passed!"
 
-      - name: Trigger Admin deploy
-        if: secrets.ADMIN_DEPLOY_HOOK != ''
-        run: curl -X POST "$ADMIN_DEPLOY_HOOK"
-        env:
-          ADMIN_DEPLOY_HOOK: ${{ secrets.ADMIN_DEPLOY_HOOK }}
+  deploy-production:
+    name: Deploy to Production
+    if: github.ref == 'refs/heads/main'
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ secrets.CUSTOMER_PROD_URL }}
+    steps:
+      - name: Deploy API to Production
+        if: secrets.API_PROD_DEPLOY_HOOK != ''
+        run: curl -X POST "${{ secrets.API_PROD_DEPLOY_HOOK }}"
+      
+      - name: Deploy Customer App to Production
+        if: secrets.CUSTOMER_PROD_DEPLOY_HOOK != ''
+        run: curl -X POST "${{ secrets.CUSTOMER_PROD_DEPLOY_HOOK }}"
+        
+      - name: Deploy Admin Panel to Production
+        if: secrets.ADMIN_PROD_DEPLOY_HOOK != ''
+        run: curl -X POST "${{ secrets.ADMIN_PROD_DEPLOY_HOOK }}"
+
+      - name: Verify Production Health
+        if: secrets.API_PROD_URL != ''
+        run: |
+          echo "Waiting for deployment to spin up..."
+          sleep 60
+          echo "Checking health endpoint..."
+          curl -f -s "${{ secrets.API_PROD_URL }}/health" || exit 1
+          echo "Health check passed!"

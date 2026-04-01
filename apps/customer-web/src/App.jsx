@@ -1,4 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { Activity, Calendar, LogOut, CheckCircle, AlertCircle, TrendingUp, RefreshCw, BarChart2 } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
 const API_BASE = (import.meta.env.VITE_API_BASE || "http://localhost:4000") + "/api/v1";
 
@@ -20,38 +22,68 @@ export function App() {
   const [email, setEmail] = useState("owner@example.com");
   const [password, setPassword] = useState("owner123");
   const [session, setSession] = useState(null);
+  
+  const [activeTab, setActiveTab] = useState("daily");
+  
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [autoMode, setAutoMode] = useState(true);
   const [weatherType, setWeatherType] = useState("pleasant");
   const [eventType, setEventType] = useState("none");
   const [eventIntensity, setEventIntensity] = useState(0);
+  
   const [recommendation, setRecommendation] = useState(null);
   const [outcomes, setOutcomes] = useState([]);
+  
   const [feedbackType, setFeedbackType] = useState("balanced");
   const [confidenceRating, setConfidenceRating] = useState(4);
+  
+  const [trends, setTrends] = useState([]);
+  
+  const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   const canGenerate = useMemo(() => session?.restaurantId && date, [session, date]);
 
+  useEffect(() => {
+    if (session && activeTab === "history") {
+      loadTrends();
+    }
+  }, [session, activeTab]);
+
+  const showToast = (msg, isErr = false) => {
+    if (isErr) setError(msg);
+    else setMessage(msg);
+    setTimeout(() => { setError(""); setMessage(""); }, 5000);
+  };
+
   async function login(e) {
     e.preventDefault();
-    setError("");
+    setLoading(true);
     try {
-      const data = await request("/auth/login", {
-        method: "POST",
-        body: { email, password }
-      });
+      const data = await request("/auth/login", { method: "POST", body: { email, password } });
       setSession(data);
-      setMessage("Logged in.");
-      setRecommendation(null);
-      setOutcomes([]);
+      showToast("Successfully logged in.");
     } catch (err) {
-      setError(err.message);
+      showToast(err.message, true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadTrends() {
+    try {
+      const data = await request(`/recommendations/trends?restaurantId=${session.restaurantId}`, {
+        token: session.accessToken
+      });
+      setTrends(data.trends);
+    } catch (err) {
+      showToast("Failed to load trends", true);
     }
   }
 
   async function generateRecommendation() {
-    setError("");
+    setLoading(true);
     try {
       const data = await request("/recommendations/generate", {
         method: "POST",
@@ -59,12 +91,7 @@ export function App() {
         body: {
           restaurantId: session.restaurantId,
           date,
-          manualContext: {
-            weatherType,
-            eventType,
-            eventIntensity,
-            sourceStatus: "live"
-          }
+          manualContext: autoMode ? { sourceStatus: "auto" } : { weatherType, eventType, eventIntensity, sourceStatus: "live" }
         }
       });
       setRecommendation(data);
@@ -79,9 +106,11 @@ export function App() {
           recommendationFollowed: true
         }))
       );
-      setMessage("Recommendation generated.");
+      showToast("Recommendation generated.");
     } catch (err) {
-      setError(err.message);
+      showToast(err.message, true);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -101,33 +130,31 @@ export function App() {
   }
 
   async function submitOutcomes() {
-    setError("");
+    setLoading(true);
     try {
+      const entries = outcomes.map((o) => ({
+        menuItemId: o.menuItemId,
+        preparedQty: Number(o.preparedQty),
+        soldQty: Number(o.soldQty),
+        leftoverQty: Number(o.leftoverQty),
+        stockout: o.stockout,
+        recommendationFollowed: o.recommendationFollowed
+      }));
       await request("/outcomes/daily", {
         method: "POST",
         token: session.accessToken,
-        body: {
-          restaurantId: session.restaurantId,
-          date,
-          entries: outcomes.map((row) => ({
-            menuItemId: row.menuItemId,
-            preparedQty: Number(row.preparedQty),
-            soldQty: Number(row.soldQty),
-            leftoverQty: Number(row.leftoverQty),
-            stockout: Boolean(row.stockout),
-            recommendationFollowed: Boolean(row.recommendationFollowed)
-          }))
-        }
+        body: { restaurantId: session.restaurantId, date, entries }
       });
-      setMessage("Outcomes saved.");
+      showToast("Outcomes saved safely.");
     } catch (err) {
-      setError(err.message);
+      showToast(err.message, true);
+    } finally {
+      setLoading(false);
     }
   }
 
   async function submitFeedback() {
-    setError("");
-    if (!session?.restaurantId) return;
+    setLoading(true);
     try {
       await request("/feedback/quick", {
         method: "POST",
@@ -136,180 +163,256 @@ export function App() {
           restaurantId: session.restaurantId,
           date,
           feedbackType,
-          confidenceRating: Number(confidenceRating)
+          confidenceRating: Number(confidenceRating),
+          note: "Submitted via Phase 5 UX"
         }
       });
-      setMessage("Feedback saved.");
+      showToast("Thank you for your feedback!");
     } catch (err) {
-      setError(err.message);
+      showToast(err.message, true);
+    } finally {
+      setLoading(false);
     }
   }
 
-  return (
-    <main className="page">
-      <section className="card">
-        <h1>Customer App</h1>
-        <p>Daily prep recommendation for restaurant owners and kitchen managers.</p>
-      </section>
-
-      {!session ? (
-        <section className="card">
-          <h2>Login</h2>
-          <form onSubmit={login} className="grid">
-            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" />
-            <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="Password" />
-            <button type="submit">Login</button>
+  if (!session) {
+    return (
+      <div className="login-container">
+        <div className="card login-card">
+          <div className="text-center mb-6">
+            <Activity className="mx-auto text-primary" size={48} />
+            <h1 className="text-2xl mt-4">Kitchen Portal</h1>
+            <p className="text-muted">Sign in to manage daily prep</p>
+          </div>
+          {error && <div className="error-toast"><AlertCircle size={18} /> {error}</div>}
+          <form onSubmit={login} className="flex-col gap-4">
+            <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email address" required />
+            <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" required />
+            <button className="btn btn-primary" type="submit" disabled={loading}>
+              {loading ? <RefreshCw className="animate-spin" size={18} /> : "Sign In"}
+            </button>
           </form>
-          <p>Use owner@example.com / owner123</p>
-        </section>
-      ) : (
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container">
+      <div className="header">
+        <div>
+          <h1 className="text-2xl flex-row"><Activity className="text-primary" /> Kitchen Dashboard</h1>
+          <p className="text-sm text-muted">Smart prep for small restaurants</p>
+        </div>
+        <button className="btn btn-outline text-sm" onClick={() => setSession(null)}>
+          <LogOut size={16} /> Sign Out
+        </button>
+      </div>
+
+      {(error || message) && (
+        <div className="card mb-4" style={{ padding: '1rem', background: error ? 'var(--danger-bg)' : 'var(--success-bg)', color: error ? 'var(--danger)' : 'var(--success)', border: 'none' }}>
+          <div className="flex-row">
+            {error ? <AlertCircle size={18} /> : <CheckCircle size={18} />}
+            <span className="font-medium">{error || message}</span>
+          </div>
+        </div>
+      )}
+
+      <div className="mb-6 flex-row" style={{ borderBottom: '1px solid var(--border)' }}>
+        <button 
+          className="btn" 
+          style={{ background: 'transparent', color: activeTab === 'daily' ? 'var(--primary)' : 'var(--text-muted)', borderBottom: activeTab === 'daily' ? '2px solid var(--primary)' : 'none', borderRadius: 0 }}
+          onClick={() => setActiveTab('daily')}
+        >
+          <Calendar size={18} /> Daily Plan
+        </button>
+        <button 
+          className="btn" 
+          style={{ background: 'transparent', color: activeTab === 'history' ? 'var(--primary)' : 'var(--text-muted)', borderBottom: activeTab === 'history' ? '2px solid var(--primary)' : 'none', borderRadius: 0 }}
+          onClick={() => setActiveTab('history')}
+        >
+          <BarChart2 size={18} /> 14-Day History
+        </button>
+      </div>
+
+      {activeTab === 'daily' && (
         <>
-          <section className="card">
-            <h2>Generate Recommendation</h2>
-            <div className="grid">
-              <label>
-                Date
-                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-              </label>
-              <label>
-                Weather
-                <select value={weatherType} onChange={(e) => setWeatherType(e.target.value)}>
-                  <option value="pleasant">Pleasant</option>
-                  <option value="rain">Rain</option>
-                  <option value="heatwave">Heatwave</option>
-                </select>
-              </label>
-              <label>
-                Event
-                <select value={eventType} onChange={(e) => setEventType(e.target.value)}>
-                  <option value="none">None</option>
-                  <option value="cricket">Cricket Match</option>
-                  <option value="holiday">Holiday</option>
-                  <option value="exam">Exam Period</option>
-                  <option value="local_event">Local Event</option>
-                </select>
-              </label>
-              <label>
-                Event Intensity (0-1)
-                <input
-                  type="number"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  value={eventIntensity}
-                  onChange={(e) => setEventIntensity(Number(e.target.value))}
-                />
+          <div className="card">
+            <h2 className="text-xl mb-4">1. Today's Context</h2>
+            
+            <div className="mb-4 flex items-center gap-2 bg-gray-50 p-3 rounded-lg" style={{background: 'var(--bg-core)', border: '1px solid var(--border)'}}>
+              <input type="checkbox" id="autoMode" checked={autoMode} onChange={(e) => setAutoMode(e.target.checked)} />
+              <label htmlFor="autoMode" className="font-semibold text-primary cursor-pointer text-sm mb-0">
+                Auto-Detect Weather & Events (Recommended)
               </label>
             </div>
-            <button disabled={!canGenerate} onClick={generateRecommendation}>Generate</button>
-          </section>
+
+            {!autoMode && (
+              <div className="grid-cols-2">
+                <div>
+                  <label className="text-sm font-semibold">Date</label>
+                  <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-sm font-semibold">Weather Forecast</label>
+                  <select className="select" value={weatherType} onChange={(e) => setWeatherType(e.target.value)}>
+                    <option value="pleasant">Pleasant & Clear</option>
+                    <option value="heatwave">Extreme Heat</option>
+                    <option value="rain">Heavy Rain</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-semibold">Local Event</label>
+                  <select className="select" value={eventType} onChange={(e) => setEventType(e.target.value)}>
+                    <option value="none">Normal Day</option>
+                    <option value="cricket">Cricket Match</option>
+                    <option value="holiday">Public Holiday</option>
+                    <option value="exam">University Exams</option>
+                    <option value="local_event">Nearby Festival</option>
+                  </select>
+                </div>
+                {eventType !== "none" && (
+                  <div>
+                    <label className="text-sm font-semibold">Event Intensity (0-10)</label>
+                    <input className="input" type="number" min="0" max="10" value={eventIntensity} onChange={(e) => setEventIntensity(Number(e.target.value))} />
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {autoMode && (
+              <div className="grid-cols-2">
+                <div>
+                  <label className="text-sm font-semibold">Date to Predict</label>
+                  <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+                </div>
+              </div>
+            )}
+
+            <div className="mt-6 flex justify-end">
+              <button className="btn btn-primary" onClick={generateRecommendation} disabled={!canGenerate || loading}>
+                {loading ? <RefreshCw className="animate-spin" size={18} /> : "Generate Suggestion"}
+              </button>
+            </div>
+          </div>
 
           {recommendation && (
-            <section className="card">
-              <h2>Recommendation</h2>
-              <p><strong>Confidence:</strong> {recommendation.confidenceLevel}</p>
-              <p>{recommendation.reasonSummary}</p>
-              {recommendation.usedFallback && <p className="warn">Using fallback signal data. Treat output as low confidence.</p>}
-              <table>
-                <thead>
-                  <tr>
-                    <th>Item</th>
-                    <th>Baseline</th>
-                    <th>Recommended</th>
-                    <th>Factor</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recommendation.items.map((item) => (
-                    <tr key={item.menuItemId}>
-                      <td>{item.itemName}</td>
-                      <td>{item.baselineQty}</td>
-                      <td>{item.recommendedQty}</td>
-                      <td>{item.adjustmentFactor}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </section>
+            <div className="card">
+              <div className="header mb-4" style={{ paddingBottom: '1rem' }}>
+                <h2 className="text-xl">2. Prep Suggestion</h2>
+                <span className={`badge badge-${recommendation.confidenceLevel.toLowerCase()}`}>
+                  {recommendation.confidenceLevel} Confidence
+                </span>
+              </div>
+              <p className="text-sm text-muted mb-4">{recommendation.reasonSummary}</p>
+              
+              <div className="flex-col gap-2">
+                {outcomes.map((item, idx) => (
+                  <div key={item.menuItemId} className="rec-item">
+                    <div className="font-semibold">{item.itemName}</div>
+                    <div className="text-sm text-center">
+                      <div className="text-muted">Suggested</div>
+                      <div className="text-lg font-bold text-primary">{item.preparedQty}</div>
+                    </div>
+                    <div>
+                      <label className="text-sm text-muted d-block text-center">Prepared Qty</label>
+                      <input className="input text-center" style={{marginTop: '0.25rem'}} type="number" min="0" value={item.preparedQty} onChange={(e) => updateOutcome(idx, 'preparedQty', e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="text-sm text-muted d-block text-center">Followed AI?</label>
+                      <select className="select" style={{marginTop: '0.25rem'}} value={item.recommendationFollowed} onChange={(e) => updateOutcome(idx, 'recommendationFollowed', e.target.value === 'true')}>
+                        <option value={true}>Yes</option>
+                        <option value={false}>No</option>
+                      </select>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-6 flex justify-end">
+                <button className="btn btn-primary" onClick={submitOutcomes} disabled={loading}><CheckCircle size={18} /> Confirm Plan</button>
+              </div>
+            </div>
           )}
 
           {outcomes.length > 0 && (
-            <section className="card">
-              <h2>Daily Outcomes</h2>
-              <p>Enter actual prepared and sold quantities for metrics and PMF analysis.</p>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Item</th>
-                    <th>Prepared</th>
-                    <th>Sold</th>
-                    <th>Leftover</th>
-                    <th>Stockout</th>
-                    <th>Followed</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {outcomes.map((row, idx) => (
-                    <tr key={row.menuItemId}>
-                      <td>{row.itemName}</td>
-                      <td>
-                        <input type="number" value={row.preparedQty} onChange={(e) => updateOutcome(idx, "preparedQty", Number(e.target.value))} />
-                      </td>
-                      <td>
-                        <input type="number" value={row.soldQty} onChange={(e) => updateOutcome(idx, "soldQty", Number(e.target.value))} />
-                      </td>
-                      <td>{row.leftoverQty}</td>
-                      <td>
-                        <input type="checkbox" checked={row.stockout} onChange={(e) => updateOutcome(idx, "stockout", e.target.checked)} />
-                      </td>
-                      <td>
-                        <input
-                          type="checkbox"
-                          checked={row.recommendationFollowed}
-                          onChange={(e) => updateOutcome(idx, "recommendationFollowed", e.target.checked)}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <button onClick={submitOutcomes}>Save Outcomes</button>
-            </section>
-          )}
+            <div className="card">
+              <h2 className="text-xl mb-4">3. End of Day Results</h2>
+              <div className="flex-col gap-2">
+                {outcomes.map((item, idx) => (
+                  <div key={item.menuItemId} className="rec-item">
+                    <div className="font-semibold">{item.itemName}</div>
+                    <div>
+                      <label className="text-sm text-muted">Sold Qty</label>
+                      <input className="input" type="number" min="0" value={item.soldQty} onChange={(e) => updateOutcome(idx, 'soldQty', e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="text-sm text-muted">Leftovers</label>
+                      <input className="input bg-gray-50" type="number" disabled value={item.leftoverQty} />
+                    </div>
+                    <div className="flex items-center gap-2 mt-6">
+                      <input type="checkbox" id={`so-${idx}`} checked={item.stockout} onChange={(e) => updateOutcome(idx, 'stockout', e.target.checked)} />
+                      <label htmlFor={`so-${idx}`} className="text-sm text-danger cursor-pointer">Stocked Out</label>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-6 flex justify-end">
+                <button className="btn btn-primary" onClick={submitOutcomes} disabled={loading}><CheckCircle size={18} /> Save Outcomes</button>
+              </div>
 
-          <section className="card">
-            <h2>Quick Feedback</h2>
-            <div className="grid">
-              <label>
-                Feedback
-                <select value={feedbackType} onChange={(e) => setFeedbackType(e.target.value)}>
-                  <option value="balanced">Balanced</option>
-                  <option value="ran_out_early">Ran Out Early</option>
-                  <option value="too_much_left">Too Much Left</option>
-                </select>
-              </label>
-              <label>
-                Confidence (1-5)
-                <input
-                  type="number"
-                  min="1"
-                  max="5"
-                  value={confidenceRating}
-                  onChange={(e) => setConfidenceRating(e.target.value)}
-                />
-              </label>
+              <div className="mt-8 border-t pt-6" style={{ borderColor: 'var(--border)' }}>
+                <h3 className="text-lg mb-4">Daily Feedback</h3>
+                <div className="grid-cols-2">
+                  <div>
+                    <label className="text-sm font-semibold">How was today's demand vs forecast?</label>
+                    <select className="select" value={feedbackType} onChange={(e) => setFeedbackType(e.target.value)}>
+                      <option value="balanced">Just Right</option>
+                      <option value="overprepared">Overprepared (Waste)</option>
+                      <option value="underprepared">Underprepared (Stockout)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-semibold">System Rating (1-5)</label>
+                    <select className="select" value={confidenceRating} onChange={(e) => setConfidenceRating(e.target.value)}>
+                      {[1,2,3,4,5].map(n => <option key={n} value={n}>{n} Stars</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div className="mt-6 flex justify-end">
+                  <button className="btn btn-outline" onClick={submitFeedback} disabled={loading}>Send Feedback</button>
+                </div>
+              </div>
             </div>
-            <button onClick={submitFeedback}>Submit Feedback</button>
-          </section>
-
-          <section className="card">
-            <button onClick={() => setSession(null)}>Logout</button>
-          </section>
+          )}
         </>
       )}
 
-      {message && <p className="msg">{message}</p>}
-      {error && <p className="err">{error}</p>}
-    </main>
+      {activeTab === 'history' && (
+        <div className="card">
+          <div className="header mb-4">
+            <h2 className="text-xl flex-row"><TrendingUp className="text-primary" /> Waste & Stockout Trends</h2>
+            <button className="btn btn-outline text-sm" onClick={loadTrends} disabled={loading}>
+              <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Refresh
+            </button>
+          </div>
+          <p className="text-muted text-sm mb-6">Tracking your leftover food percentage and stockout occurrences over the last 14 days.</p>
+          
+          <div className="chart-wrapper">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={trends} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                <XAxis dataKey="date" tick={{fontSize: 12}} />
+                <YAxis yAxisId="left" orientation="left" stroke="var(--primary)" label={{ value: 'Waste %', angle: -90, position: 'insideLeft', fill: 'var(--primary)' }} />
+                <YAxis yAxisId="right" orientation="right" stroke="var(--danger)" />
+                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: 'var(--shadow-md)' }} />
+                <Legend />
+                <Bar yAxisId="left" dataKey="wastePercent" name="Waste %" fill="var(--primary)" radius={[4, 4, 0, 0]} />
+                <Bar yAxisId="right" dataKey="stockoutCount" name="Stockout Count" fill="var(--danger)" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

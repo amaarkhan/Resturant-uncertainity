@@ -9,7 +9,7 @@
     "start": "node src/index.js",
     "build": "prisma generate",
     "test": "node --test test/*.test.js",
-    "lint": "echo \"No linter configured yet\"",
+    "lint": "eslint src/",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev --name init",
     "db:seed": "node prisma/seed.js"

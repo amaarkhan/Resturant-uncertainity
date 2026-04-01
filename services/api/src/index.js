@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "./db.js";
 import { auth, requireAdmin, signAccessToken } from "./auth.js";
 import { generateRecommendation } from "./recommendation.js";
+import { fetchContextSignals } from "./externalSignals.js";
 import { buildWindowMetrics, decidePmfDirection, deltaPercent } from "./pmf.js";
 
 const app = express();
@@ -12,6 +13,23 @@ const PORT = process.env.PORT || 4000;
 app.use(cors());
 app.use(express.json());
 
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on("finish", () => {
+    const latencyMs = Date.now() - start;
+    if (req.path.startsWith("/api/v1/")) {
+      prisma.apiMetric.create({
+        data: {
+          method: req.method,
+          path: req.path,
+          statusCode: res.statusCode,
+          latencyMs
+        }
+      }).catch(console.error);
+    }
+  });
+  next();
+});
 function canAccessRestaurant(user, restaurantId) {
   return user.role === "ADMIN" || user.restaurantId === restaurantId;
 }
@@ -66,23 +84,36 @@ app.post("/api/v1/recommendations/generate", auth, async (req, res) => {
     return res.status(403).json({ error: "Unauthorized restaurant access" });
   }
 
-  const menuItems = await prisma.menuItem.findMany({
-    where: { restaurantId, active: true },
-    orderBy: { name: "asc" }
+  const restaurant = await prisma.restaurant.findUnique({
+    where: { id: restaurantId },
+    include: { menuItems: { where: { active: true }, orderBy: { name: "asc" } } }
   });
 
-  if (menuItems.length === 0) {
-    return res.status(400).json({ error: "No active menu items found" });
+  if (!restaurant) return res.status(404).json({ error: "Restaurant not found" });
+  if (restaurant.menuItems.length === 0) return res.status(400).json({ error: "No active menu items found" });
+
+  let context;
+  if (!manualContext || manualContext.sourceStatus === "auto") {
+    // Phase 7: Dynamic OpenMeteo integration
+    context = await fetchContextSignals(restaurant.city, date);
+  } else {
+    // UI provided manual overrides
+    context = {
+      weatherType: manualContext.weatherType || "pleasant",
+      eventType: manualContext.eventType || "none",
+      eventIntensity: manualContext.eventIntensity ?? 0,
+      sourceStatus: "live_manual"
+    };
   }
 
-  const context = {
-    weatherType: manualContext?.weatherType || "pleasant",
-    eventType: manualContext?.eventType || "none",
-    eventIntensity: manualContext?.eventIntensity ?? 0,
-    sourceStatus: manualContext?.sourceStatus || "live"
+  const settings = {
+    weatherEnabled: restaurant.weatherEnabled,
+    eventsEnabled: restaurant.eventsEnabled,
+    weatherWeight: restaurant.weatherWeight,
+    eventWeight: restaurant.eventWeight
   };
 
-  const result = generateRecommendation(menuItems, context);
+  const result = generateRecommendation(restaurant.menuItems, context, settings);
   const run = await prisma.recommendationRun.create({
     data: {
       restaurantId,
@@ -232,22 +263,85 @@ app.get("/api/v1/recommendations/history", auth, async (req, res) => {
   res.json({ count: runs.length, runs });
 });
 
+app.get("/api/v1/recommendations/trends", auth, async (req, res) => {
+  const { restaurantId } = req.query;
+  if (!restaurantId) return res.status(400).json({ error: "restaurantId required" });
+  if (!canAccessRestaurant(req.user, String(restaurantId))) return res.status(403).json({ error: "Unauthorized" });
+
+  const past14Days = new Date();
+  past14Days.setDate(past14Days.getDate() - 14);
+  const fromDateStr = past14Days.toISOString().split("T")[0];
+
+  const outcomes = await prisma.dailyOutcome.findMany({
+    where: { restaurantId: String(restaurantId), date: { gte: fromDateStr } },
+    orderBy: { date: "asc" }
+  });
+
+  const aggregateByDate = outcomes.reduce((acc, curr) => {
+    if (!acc[curr.date]) acc[curr.date] = { date: curr.date, preparedQty: 0, leftoverQty: 0, stockoutCount: 0 };
+    acc[curr.date].preparedQty += curr.preparedQty;
+    acc[curr.date].leftoverQty += curr.leftoverQty;
+    if (curr.stockout) acc[curr.date].stockoutCount += 1;
+    return acc;
+  }, {});
+
+  const trends = Object.values(aggregateByDate).map(day => ({
+    date: day.date,
+    wastePercent: day.preparedQty ? Math.round((day.leftoverQty / day.preparedQty) * 100) : 0,
+    stockoutCount: day.stockoutCount
+  }));
+
+  res.json({ trends });
+});
+
 app.get("/api/v1/admin/restaurants", auth, requireAdmin, async (req, res) => {
   const restaurants = await prisma.restaurant.findMany({ orderBy: { createdAt: "desc" } });
   res.json({ restaurants });
 });
 
 app.post("/api/v1/admin/restaurants", auth, requireAdmin, async (req, res) => {
-  const { name, city, timezone } = req.body || {};
+  const { name, city, timezone, operatingDays, weatherEnabled, eventsEnabled, weatherWeight, eventWeight } = req.body || {};
   if (!name || !city || !timezone) {
     return res.status(400).json({ error: "name, city, timezone required" });
   }
 
   const restaurant = await prisma.restaurant.create({
-    data: { name, city, timezone, active: true }
+    data: { 
+      name, city, timezone, 
+      active: true,
+      operatingDays: operatingDays || "Mon,Tue,Wed,Thu,Fri,Sat,Sun",
+      weatherEnabled: weatherEnabled ?? true,
+      eventsEnabled: eventsEnabled ?? true,
+      weatherWeight: weatherWeight ?? 1.0,
+      eventWeight: eventWeight ?? 1.0
+    }
   });
 
   res.status(201).json(restaurant);
+});
+
+app.patch("/api/v1/admin/restaurants/:id", auth, requireAdmin, async (req, res) => {
+  const id = req.params.id;
+  const data = req.body || {};
+  try {
+    const restaurant = await prisma.restaurant.update({
+      where: { id },
+      data: {
+        name: data.name,
+        city: data.city,
+        timezone: data.timezone,
+        operatingDays: data.operatingDays,
+        weatherEnabled: data.weatherEnabled,
+        eventsEnabled: data.eventsEnabled,
+        weatherWeight: data.weatherWeight,
+        eventWeight: data.eventWeight,
+        active: data.active
+      }
+    });
+    res.json(restaurant);
+  } catch (err) {
+    res.status(400).json({ error: "Failed to update restaurant" });
+  }
 });
 
 app.get("/api/v1/admin/menu-items", auth, requireAdmin, async (req, res) => {
@@ -262,7 +356,7 @@ app.get("/api/v1/admin/menu-items", auth, requireAdmin, async (req, res) => {
 });
 
 app.post("/api/v1/admin/menu-items", auth, requireAdmin, async (req, res) => {
-  const { restaurantId, name, unit, baselinePrepQty } = req.body || {};
+  const { restaurantId, name, unit, baselinePrepQty, cost, price } = req.body || {};
   if (!restaurantId || !name || !unit || typeof baselinePrepQty !== "number") {
     return res.status(400).json({ error: "restaurantId, name, unit, baselinePrepQty required" });
   }
@@ -273,6 +367,8 @@ app.post("/api/v1/admin/menu-items", auth, requireAdmin, async (req, res) => {
       name,
       unit,
       baselinePrepQty,
+      cost: Number(cost) || 0.0,
+      price: Number(price) || 0.0,
       active: true
     }
   });
@@ -357,6 +453,70 @@ app.get("/api/v1/admin/metrics/overview", auth, requireAdmin, async (req, res) =
   });
 });
 
+app.get("/api/v1/admin/metrics/instrumentation", auth, requireAdmin, async (req, res) => {
+  try {
+    // Product Usage
+    const loginCount = await prisma.apiMetric.count({ where: { path: "/api/v1/auth/login" } });
+    const viewCount = await prisma.recommendationRun.count();
+    const viewRate = loginCount > 0 ? Number((viewCount / loginCount * 100).toFixed(1)) : 100;
+
+    const totalOutcomes = await prisma.dailyOutcome.count();
+    const followed = await prisma.dailyOutcome.count({ where: { recommendationFollowed: true } });
+    const followRate = totalOutcomes ? Number((followed / totalOutcomes * 100).toFixed(1)) : 0;
+
+    const totalFeedback = await prisma.quickFeedback.count();
+    const allOutcomes = await prisma.dailyOutcome.findMany({ select: { date: true, restaurantId: true } });
+    const uniqueOutcomeDays = new Set(allOutcomes.map((o) => `${o.restaurantId}-${o.date}`)).size;
+    const feedbackCompletionRate = uniqueOutcomeDays ? Number((totalFeedback / uniqueOutcomeDays * 100).toFixed(1)) : 0;
+
+    // Reliability
+    const apiMetrics = await prisma.apiMetric.findMany();
+    const totalCalls = apiMetrics.length || 1;
+    const successCalls = apiMetrics.filter((m) => m.statusCode < 400).length;
+    const errorCalls = totalCalls - successCalls;
+    const successRate = Number((successCalls / totalCalls * 100).toFixed(1));
+    const errorRate = Number((errorCalls / totalCalls * 100).toFixed(1));
+    const avgLatency = Number((apiMetrics.reduce((a, b) => a + b.latencyMs, 0) / totalCalls).toFixed(1));
+
+    // Business Outcomes
+    let wastePercent = 0;
+    let grossMargin = 0;
+    if (totalOutcomes > 0) {
+      const outcomes = await prisma.dailyOutcome.findMany({ include: { restaurant: { include: { menuItems: true } } } });
+      let totalPrep = 0, totalLeft = 0;
+      outcomes.forEach((o) => {
+        totalPrep += o.preparedQty;
+        totalLeft += o.leftoverQty;
+        const item = o.restaurant.menuItems.find((m) => m.id === o.menuItemId);
+        if (item) {
+          grossMargin += (o.soldQty * item.price) - (o.preparedQty * item.cost);
+        }
+      });
+      wastePercent = totalPrep ? Number((totalLeft / totalPrep * 100).toFixed(1)) : 0;
+    }
+    const stockoutDays = await prisma.dailyOutcome.count({ where: { stockout: true } });
+    const stockoutRate = totalOutcomes ? Number((stockoutDays / totalOutcomes * 100).toFixed(1)) : 0;
+
+    // Data Quality
+    const activeItemsCount = await prisma.menuItem.count({ where: { active: true } });
+    const expectedOutcomes = activeItemsCount * 14; 
+    const completionRate = expectedOutcomes ? Math.min(100, Number((totalOutcomes / expectedOutcomes * 100).toFixed(1))) : 0;
+
+    const missingInputFrequency = await prisma.recommendationRun.count({
+      where: { signalsUsed: { contains: `"eventType":"none"` } }
+    });
+
+    res.json({
+      product: { viewRate, followRate, feedbackCompletionRate },
+      reliability: { successRate, errorRate, avgLatency },
+      business: { wastePercent, stockoutRate, grossMargin: Number(grossMargin.toFixed(2)) },
+      dataQuality: { completionRate, missingInputFrequency }
+    });
+  } catch(err) {
+    res.status(500).json({ error: "Failed to load telemetry" });
+  }
+});
+
 app.get("/api/v1/admin/metrics/pmf-report", auth, requireAdmin, async (req, res) => {
   const {
     restaurantId,
@@ -425,8 +585,36 @@ app.get("/api/v1/admin/metrics/pmf-report", auth, requireAdmin, async (req, res)
   });
 });
 
+app.get("/api/v1/admin/dashboard", auth, requireAdmin, async (req, res) => {
+  const activeRestaurants = await prisma.restaurant.count({ where: { active: true } });
+  
+  const past14Days = new Date();
+  past14Days.setDate(past14Days.getDate() - 14);
+  const fromStr = past14Days.toISOString().split("T")[0];
+  
+  const recentRunsCount = await prisma.recommendationRun.count({
+    where: { date: { gte: fromStr } }
+  });
+  
+  const expectedRuns = activeRestaurants * 14;
+  const usageRate = expectedRuns > 0 ? Number(((recentRunsCount / expectedRuns) * 100).toFixed(1)) : 0;
+  
+  const fallbackCount = await prisma.recommendationRun.count({
+    where: { usedFallback: true, date: { gte: fromStr } }
+  });
+
+  res.json({ activeRestaurants, usageRate, errorCount: fallbackCount });
+});
+
 app.use((err, req, res, next) => {
-  console.error(err);
+  console.error(JSON.stringify({
+    level: "error",
+    message: err.message,
+    stack: err.stack,
+    path: req.path,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  }));
   res.status(500).json({ error: "Internal server error" });
 });
 

@@ -8,11 +8,13 @@
     "build": "vite build",
     "preview": "vite preview --port 5173",
     "test": "echo \"No tests configured\"",
-    "lint": "echo \"No linter configured yet\""
+    "lint": "eslint src/"
   },
   "dependencies": {
+    "lucide-react": "^1.7.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "recharts": "^3.8.1"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",

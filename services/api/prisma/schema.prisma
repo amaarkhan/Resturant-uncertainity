@@ -25,6 +25,11 @@ model Restaurant {
   city               String
   timezone           String
   active             Boolean             @default(true)
+  operatingDays      String              @default("Mon,Tue,Wed,Thu,Fri,Sat,Sun")
+  weatherEnabled     Boolean             @default(true)
+  eventsEnabled      Boolean             @default(true)
+  weatherWeight      Float               @default(1.0)
+  eventWeight        Float               @default(1.0)
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   users              User[]
@@ -41,6 +46,8 @@ model MenuItem {
   name            String
   unit            String
   baselinePrepQty Int
+  cost            Float    @default(0.0)
+  price           Float    @default(0.0)
   active          Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -103,4 +110,13 @@ model QuickFeedback {
   createdAt        DateTime @default(now())
 
   @@index([restaurantId, date])
+}
+
+model ApiMetric {
+  id         String   @id @default(cuid())
+  method     String
+  path       String
+  statusCode Int
+  latencyMs  Float
+  createdAt  DateTime @default(now())
 }

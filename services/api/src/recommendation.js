@@ -21,9 +21,19 @@ function confidenceFromContext({ weatherType, eventType, usedFallback }) {
   return "High";
 }
 
-export function generateRecommendation(menuItems, context) {
-  const w = weatherMultiplier(context.weatherType);
-  const e = eventMultiplier(context.eventType, Number(context.eventIntensity || 0));
+export function generateRecommendation(menuItems, context, settings = { weatherEnabled: true, eventsEnabled: true, weatherWeight: 1.0, eventWeight: 1.0 }) {
+  let w = 1.0;
+  if (settings.weatherEnabled) {
+    const rawW = weatherMultiplier(context.weatherType);
+    w = 1.0 + (rawW - 1.0) * settings.weatherWeight;
+  }
+
+  let e = 1.0;
+  if (settings.eventsEnabled) {
+    const rawE = eventMultiplier(context.eventType, Number(context.eventIntensity || 0));
+    e = 1.0 + (rawE - 1.0) * settings.eventWeight;
+  }
+
   const factor = Number((w * e).toFixed(2));
 
   const items = menuItems.map((item) => {
@@ -34,14 +44,14 @@ export function generateRecommendation(menuItems, context) {
       baselineQty: item.baselinePrepQty,
       recommendedQty,
       adjustmentFactor: factor,
-      reason: `Adjusted by weather (${context.weatherType || "unknown"}) and event (${context.eventType || "none"}).`
+      reason: `Adjusted by weather (${settings.weatherEnabled ? context.weatherType || "none" : "disabled"}) and event (${settings.eventsEnabled ? context.eventType || "none" : "disabled"}).`
     };
   });
 
   const usedFallback = context.sourceStatus === "fallback";
   const confidenceLevel = confidenceFromContext({
-    weatherType: context.weatherType,
-    eventType: context.eventType,
+    weatherType: settings.weatherEnabled ? context.weatherType : null,
+    eventType: settings.eventsEnabled ? context.eventType : null,
     usedFallback
   });
 
@@ -49,6 +59,6 @@ export function generateRecommendation(menuItems, context) {
     items,
     confidenceLevel,
     usedFallback,
-    reasonSummary: "Prep quantities adjusted from baseline using context signals."
+    reasonSummary: "Prep quantities adjusted using active context signals."
   };
 }
