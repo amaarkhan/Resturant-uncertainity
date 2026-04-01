@@ -9,7 +9,7 @@ import { fetchContextSignals } from "./externalSignals.js";
 import { buildWindowMetrics, decidePmfDirection, deltaPercent } from "./pmf.js";
 
 const app = express();
-const enableApiMetrics = process.env.ENABLE_API_METRICS === "true";
+const enableApiMetrics = process.env.ENABLE_API_METRICS === "true" && !process.env.VERCEL;
 
 app.use(cors());
 app.options("*", cors());
