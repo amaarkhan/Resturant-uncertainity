@@ -620,7 +620,9 @@ app.use((err, req, res, next) => {
 
 export default app;
 
-if (process.env.VERCEL !== "1") {
+const isDirectRun = process.argv[1] && process.argv[1].includes("src/index.js");
+
+if (isDirectRun) {
   app.listen(PORT, () => {
     console.log(`API running on http://localhost:${PORT}`);
   });
