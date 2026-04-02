@@ -47,12 +47,14 @@ export function App() {
   const [loading, setLoading] = useState(false);
 
   const [activeTab, setActiveTab] = useState("restaurants");
+  const [tabLoading, setTabLoading] = useState(false);
 
   const [restaurants, setRestaurants] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
   const [users, setUsers] = useState([]);
-  const [overview, setOverview] = useState(null);
+  const [dashboardOverview, setDashboardOverview] = useState(null);
   const [dashboard, setDashboard] = useState(null);
+  const [telemetryData, setTelemetryData] = useState(null);
 
   // Modal states
   const [showConfigModal, setShowConfigModal] = useState(false);
@@ -85,6 +87,7 @@ export function App() {
   }
 
   async function loadData() {
+    setTabLoading(true);
     try {
       if (activeTab === "restaurants") {
         const d = await request("/admin/restaurants", { token: session.accessToken });
@@ -96,16 +99,23 @@ export function App() {
         const d = await request("/admin/users", { token: session.accessToken });
         setUsers(d.users || []);
       } else if (activeTab === "dashboard") {
-        const pmf = await request("/admin/metrics/overview", { token: session.accessToken });
-        setOverview(pmf);
-        const dash = await request("/admin/dashboard", { token: session.accessToken });
+        setDashboardOverview(null);
+        setDashboard(null);
+        const [pmf, dash] = await Promise.all([
+          request("/admin/metrics/overview", { token: session.accessToken }),
+          request("/admin/dashboard", { token: session.accessToken })
+        ]);
+        setDashboardOverview(pmf);
         setDashboard(dash);
       } else if (activeTab === "telemetry") {
+        setTelemetryData(null);
         const stats = await request("/admin/metrics/instrumentation", { token: session.accessToken });
-        setOverview(stats); // Reusing overview state variable for telemetry data
+        setTelemetryData(stats);
       }
     } catch (err) {
       showToast("Error loading data: " + err.message, true);
+    } finally {
+      setTabLoading(false);
     }
   }
 
@@ -200,7 +210,13 @@ export function App() {
           )}
         </header>
 
-        {activeTab === 'dashboard' && overview && dashboard && (
+        {activeTab === 'dashboard' && tabLoading && !dashboardOverview && (
+          <div className="flex items-center justify-center" style={{ padding: '4rem' }}>
+            <RefreshCw className="animate-spin text-primary" size={32} />
+          </div>
+        )}
+
+        {activeTab === 'dashboard' && dashboardOverview && dashboard && (
           <div className="flex-col gap-6">
             <h2 className="text-xl">Platform Health & Coverage</h2>
             <div className="grid-cols-3">
@@ -225,17 +241,17 @@ export function App() {
             <div className="grid-cols-3">
               <div className="stat-card">
                 <span className="stat-label">Total Waste Rate</span>
-                <span className="stat-value">{overview.wastePercent}%</span>
-                <span className="stat-desc">From {overview.totalOutcomes} outcome entries</span>
+                <span className="stat-value">{dashboardOverview.wastePercent}%</span>
+                <span className="stat-desc">From {dashboardOverview.outcomeCount} outcome entries</span>
               </div>
               <div className="stat-card">
                 <span className="stat-label">Stockout Rate</span>
-                <span className="stat-value">{overview.stockoutRate}%</span>
+                <span className="stat-value">{dashboardOverview.stockoutRate}%</span>
                 <span className="stat-desc">Days impacted by stockouts</span>
               </div>
               <div className="stat-card">
                 <span className="stat-label">System Trust Score</span>
-                <span className="stat-value">{overview.trustScore}</span>
+                <span className="stat-value">{dashboardOverview.trustScore}</span>
                 <span className="stat-desc">Out of 5.0 baseline</span>
               </div>
             </div>
@@ -243,17 +259,23 @@ export function App() {
             <div className="card mt-2">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg">Recommendation Follow Rate</h3>
-                <span className="text-2xl text-primary font-bold">{(overview.recommendationFollowRate * 100).toFixed(1)}%</span>
+                <span className="text-2xl text-primary font-bold">{(dashboardOverview.recommendationFollowRate * 100).toFixed(1)}%</span>
               </div>
               <div style={{ width: '100%', height: '8px', background: 'var(--bg-surface-hover)', borderRadius: '4px' }}>
-                <div style={{ width: `${overview.recommendationFollowRate * 100}%`, height: '100%', background: 'var(--primary)', borderRadius: '4px' }}></div>
+                <div style={{ width: `${dashboardOverview.recommendationFollowRate * 100}%`, height: '100%', background: 'var(--primary)', borderRadius: '4px' }}></div>
               </div>
               <p className="text-muted text-sm mt-2">Percentage of recommendations accepted without modification by owners.</p>
             </div>
           </div>
         )}
 
-        {activeTab === 'telemetry' && overview && (
+        {activeTab === 'telemetry' && tabLoading && !telemetryData && (
+          <div className="flex items-center justify-center" style={{ padding: '4rem' }}>
+            <RefreshCw className="animate-spin text-primary" size={32} />
+          </div>
+        )}
+
+        {activeTab === 'telemetry' && telemetryData && (
           <div className="flex-col gap-6">
             <h2 className="text-xl flex-row"><Activity className="text-primary"/> MVP Instrumentation Data (Phase 8)</h2>
             
@@ -261,17 +283,17 @@ export function App() {
             <div className="grid-cols-3">
               <div className="stat-card">
                 <span className="stat-label">Recommendation View Rate</span>
-                <span className="stat-value">{overview.product.viewRate}%</span>
+                <span className="stat-value">{telemetryData.product.viewRate}%</span>
                 <span className="stat-desc">Dashboard visits vs generation</span>
               </div>
               <div className="stat-card">
                 <span className="stat-label">System Follow Rate</span>
-                <span className="stat-value">{overview.product.followRate}%</span>
+                <span className="stat-value">{telemetryData.product.followRate}%</span>
                 <span className="stat-desc">Direct compliance</span>
               </div>
               <div className="stat-card">
                 <span className="stat-label">Feedback Loop Completion</span>
-                <span className="stat-value">{overview.product.feedbackCompletionRate}%</span>
+                <span className="stat-value">{telemetryData.product.feedbackCompletionRate}%</span>
                 <span className="stat-desc">EOD reviews received</span>
               </div>
             </div>
@@ -280,17 +302,17 @@ export function App() {
             <div className="grid-cols-3">
               <div className="stat-card">
                 <span className="stat-label">API Success Rate</span>
-                <span className="stat-value" style={{color: 'var(--success)'}}>{overview.reliability.successRate}%</span>
+                <span className="stat-value" style={{color: 'var(--success)'}}>{telemetryData.reliability.successRate}%</span>
                 <span className="stat-desc">Total 200/300 responses</span>
               </div>
               <div className="stat-card">
                 <span className="stat-label">API Error Rate</span>
-                <span className="stat-value" style={{color: 'var(--danger)'}}>{overview.reliability.errorRate}%</span>
+                <span className="stat-value" style={{color: 'var(--danger)'}}>{telemetryData.reliability.errorRate}%</span>
                 <span className="stat-desc">Total 400/500 responses</span>
               </div>
               <div className="stat-card">
                 <span className="stat-label">Avg Core Latency</span>
-                <span className="stat-value">{overview.reliability.avgLatency}ms</span>
+                <span className="stat-value">{telemetryData.reliability.avgLatency}ms</span>
                 <span className="stat-desc">Response time mapping</span>
               </div>
             </div>
@@ -299,17 +321,17 @@ export function App() {
             <div className="grid-cols-3">
               <div className="stat-card">
                 <span className="stat-label">Platform Gross Margin</span>
-                <span className="stat-value" style={{color: 'var(--success)'}}>${overview.business.grossMargin}</span>
+                <span className="stat-value" style={{color: 'var(--success)'}}>${telemetryData.business.grossMargin}</span>
                 <span className="stat-desc">Total Profit Proxy Across DB</span>
               </div>
               <div className="stat-card">
                 <span className="stat-label">Raw Waste Threshold</span>
-                <span className="stat-value">{overview.business.wastePercent}%</span>
+                <span className="stat-value">{telemetryData.business.wastePercent}%</span>
                 <span className="stat-desc">Inventory conversion loss</span>
               </div>
               <div className="stat-card">
                 <span className="stat-label">Stockout Occurrences</span>
-                <span className="stat-value">{overview.business.stockoutRate}%</span>
+                <span className="stat-value">{telemetryData.business.stockoutRate}%</span>
                 <span className="stat-desc">Days failing local demand</span>
               </div>
             </div>
@@ -318,12 +340,12 @@ export function App() {
             <div className="grid-cols-2">
               <div className="stat-card">
                 <span className="stat-label">Data Fill Completeness</span>
-                <span className="stat-value text-primary">{overview.dataQuality.completionRate}%</span>
+                <span className="stat-value text-primary">{telemetryData.dataQuality.completionRate}%</span>
                 <span className="stat-desc">Expected EOD entries tracked</span>
               </div>
               <div className="stat-card">
                 <span className="stat-label">Input Omission Defaults</span>
-                <span className="stat-value">{overview.dataQuality.missingInputFrequency}</span>
+                <span className="stat-value">{telemetryData.dataQuality.missingInputFrequency}</span>
                 <span className="stat-desc">Events falling back to base templates</span>
               </div>
             </div>
