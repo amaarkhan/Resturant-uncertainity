@@ -180,15 +180,17 @@ export function App() {
       <div className="login-container">
         <div className="card login-card">
           <div className="text-center mb-6">
-            <Activity className="mx-auto text-primary" size={48} />
+            <div className="login-icon-wrap">
+              <Activity className="text-primary" size={32} />
+            </div>
             <h1 className="text-2xl mt-4">Kitchen Portal</h1>
-            <p className="text-muted">Sign in to manage daily prep</p>
+            <p className="text-muted text-sm">Sign in to manage your daily prep</p>
           </div>
-          {error && <div className="error-toast"><AlertCircle size={18} /> {error}</div>}
+          {error && <div className="error-toast"><AlertCircle size={16} /> {error}</div>}
           <form onSubmit={login} className="flex-col gap-4">
             <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email address" required />
             <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" required />
-            <button className="btn btn-primary" type="submit" disabled={loading}>
+            <button className="btn btn-primary mt-2" type="submit" disabled={loading}>
               {loading ? <RefreshCw className="animate-spin" size={18} /> : "Sign In"}
             </button>
           </form>
@@ -210,27 +212,19 @@ export function App() {
       </div>
 
       {(error || message) && (
-        <div className="card mb-4" style={{ padding: '1rem', background: error ? 'var(--danger-bg)' : 'var(--success-bg)', color: error ? 'var(--danger)' : 'var(--success)', border: 'none' }}>
-          <div className="flex-row">
+        <div className="toast-fixed">
+          <div className={`toast ${error ? 'toast-error' : 'toast-success'}`}>
             {error ? <AlertCircle size={18} /> : <CheckCircle size={18} />}
             <span className="font-medium">{error || message}</span>
           </div>
         </div>
       )}
 
-      <div className="mb-6 flex-row" style={{ borderBottom: '1px solid var(--border)' }}>
-        <button 
-          className="btn" 
-          style={{ background: 'transparent', color: activeTab === 'daily' ? 'var(--primary)' : 'var(--text-muted)', borderBottom: activeTab === 'daily' ? '2px solid var(--primary)' : 'none', borderRadius: 0 }}
-          onClick={() => setActiveTab('daily')}
-        >
+      <div className="tab-bar">
+        <button className={`tab-btn ${activeTab === 'daily' ? 'active' : ''}`} onClick={() => setActiveTab('daily')}>
           <Calendar size={18} /> Daily Plan
         </button>
-        <button 
-          className="btn" 
-          style={{ background: 'transparent', color: activeTab === 'history' ? 'var(--primary)' : 'var(--text-muted)', borderBottom: activeTab === 'history' ? '2px solid var(--primary)' : 'none', borderRadius: 0 }}
-          onClick={() => setActiveTab('history')}
-        >
+        <button className={`tab-btn ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setActiveTab('history')}>
           <BarChart2 size={18} /> 14-Day History
         </button>
       </div>
@@ -400,14 +394,14 @@ export function App() {
           <div className="chart-wrapper">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={trends} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                <XAxis dataKey="date" tick={{fontSize: 12}} />
-                <YAxis yAxisId="left" orientation="left" stroke="var(--primary)" label={{ value: 'Waste %', angle: -90, position: 'insideLeft', fill: 'var(--primary)' }} />
-                <YAxis yAxisId="right" orientation="right" stroke="var(--danger)" />
-                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: 'var(--shadow-md)' }} />
-                <Legend />
-                <Bar yAxisId="left" dataKey="wastePercent" name="Waste %" fill="var(--primary)" radius={[4, 4, 0, 0]} />
-                <Bar yAxisId="right" dataKey="stockoutCount" name="Stockout Count" fill="var(--danger)" radius={[4, 4, 0, 0]} />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                <XAxis dataKey="date" tick={{fontSize: 12, fill: '#7c839e'}} stroke="rgba(255,255,255,0.06)" />
+                <YAxis yAxisId="left" orientation="left" stroke="rgba(255,255,255,0.06)" tick={{fill: '#818cf8'}} label={{ value: 'Waste %', angle: -90, position: 'insideLeft', fill: '#818cf8' }} />
+                <YAxis yAxisId="right" orientation="right" stroke="rgba(255,255,255,0.06)" tick={{fill: '#fb7185'}} />
+                <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 8px 30px rgba(0,0,0,0.4)', background: '#1a1e30', color: '#e4e7f1' }} />
+                <Legend wrapperStyle={{color: '#7c839e'}} />
+                <Bar yAxisId="left" dataKey="wastePercent" name="Waste %" fill="#818cf8" radius={[6, 6, 0, 0]} />
+                <Bar yAxisId="right" dataKey="stockoutCount" name="Stockout Count" fill="#fb7185" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

@@ -141,23 +141,28 @@ export function App() {
 
   if (!session) {
     return (
-      <div className="flex items-center justify-center w-full" style={{ minHeight: "100vh", backgroundColor: "var(--bg-core)" }}>
-        <div className="card" style={{ maxWidth: "420px", width: "100%" }}>
-          <div className="flex-col items-center mb-8">
-            <ShieldCheck size={48} className="text-primary mb-4" />
-            <h1 className="text-2xl">Admin Portal</h1>
-            <p className="text-muted">Command center access</p>
+      <div className="login-page">
+        <div className="login-card">
+          <div className="flex-col items-center mb-8" style={{alignItems:'center'}}>
+            <div className="login-icon-wrap">
+              <ShieldCheck size={36} className="text-primary" />
+            </div>
+            <h1 className="text-2xl" style={{textAlign:'center'}}>Admin Portal</h1>
+            <p className="text-muted text-sm" style={{textAlign:'center'}}>Secure command center access</p>
           </div>
           {error && (
-            <div className="mb-4" style={{ padding: "1rem", background: "var(--danger-bg)", color: "var(--danger)", borderRadius: "var(--radius-md)" }}>
-              {error}
+            <div className="toast toast-error mb-4">
+              <AlertCircle size={16} />
+              <span>{error}</span>
             </div>
           )}
           <form onSubmit={login} className="form-group">
-            <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            <input className="input mt-2" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-            <button className="btn btn-primary mt-4 w-full" disabled={loading}>
-              {loading ? <RefreshCw className="animate-spin" size={18} /> : "Authenticate"}
+            <label>Email</label>
+            <input className="input" type="email" placeholder="admin@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <label className="mt-4">Password</label>
+            <input className="input" type="password" placeholder="Enter password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <button className="btn btn-primary mt-6 w-full" disabled={loading}>
+              {loading ? <RefreshCw className="animate-spin" size={18} /> : "Sign In"}
             </button>
           </form>
         </div>
@@ -202,17 +207,22 @@ export function App() {
             <h1 className="text-2xl" style={{textTransform: 'capitalize'}}>{activeTab.replace(/([A-Z])/g, ' $1').trim()}</h1>
             <p className="text-muted text-sm">Manage system resources and view live metrics.</p>
           </div>
-          {(message || error) && (
-            <div className="flex-row px-4 py-2" style={{ background: error ? 'var(--danger-bg)' : 'var(--success-bg)', color: error ? 'var(--danger)' : 'var(--success)', borderRadius: 'var(--radius-full)' }}>
-              {error ? <AlertCircle size={16} /> : <CheckCircle size={16} />}
-              <span className="text-sm font-medium">{error || message}</span>
-            </div>
-          )}
+          {/* Toast moved to fixed position */}
         </header>
 
+        {(message || error) && (
+          <div className="toast-fixed">
+            <div className={`toast ${error ? 'toast-error' : 'toast-success'}`}>
+              {error ? <AlertCircle size={18} /> : <CheckCircle size={18} />}
+              <span>{error || message}</span>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'dashboard' && tabLoading && !dashboardOverview && (
-          <div className="flex items-center justify-center" style={{ padding: '4rem' }}>
-            <RefreshCw className="animate-spin text-primary" size={32} />
+          <div className="loading-center">
+            <RefreshCw className="animate-spin text-primary" size={28} />
+            <span className="loading-text">Loading dashboard...</span>
           </div>
         )}
 
@@ -270,8 +280,9 @@ export function App() {
         )}
 
         {activeTab === 'telemetry' && tabLoading && !telemetryData && (
-          <div className="flex items-center justify-center" style={{ padding: '4rem' }}>
-            <RefreshCw className="animate-spin text-primary" size={32} />
+          <div className="loading-center">
+            <RefreshCw className="animate-spin text-primary" size={28} />
+            <span className="loading-text">Loading telemetry...</span>
           </div>
         )}
 
