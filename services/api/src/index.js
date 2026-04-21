@@ -476,8 +476,24 @@ app.get("/api/v1/admin/metrics/overview", auth, requireAdmin, async (req, res) =
 
 app.get("/api/v1/admin/metrics/instrumentation", auth, requireAdmin, async (req, res) => {
   try {
+    const apiMetricCount = async (where) => {
+      try {
+        return await prisma.apiMetric.count(where ? { where } : undefined);
+      } catch {
+        return 0;
+      }
+    };
+
+    const apiMetricFindMany = async () => {
+      try {
+        return await prisma.apiMetric.findMany();
+      } catch {
+        return [];
+      }
+    };
+
     // Product Usage
-    const loginCount = await prisma.apiMetric.count({ where: { path: "/api/v1/auth/login" } });
+    const loginCount = await apiMetricCount({ path: "/api/v1/auth/login" });
     const viewCount = await prisma.recommendationRun.count();
     const viewRate = loginCount > 0 ? Number((viewCount / loginCount * 100).toFixed(1)) : 100;
 
@@ -491,7 +507,7 @@ app.get("/api/v1/admin/metrics/instrumentation", auth, requireAdmin, async (req,
     const feedbackCompletionRate = uniqueOutcomeDays ? Number((totalFeedback / uniqueOutcomeDays * 100).toFixed(1)) : 0;
 
     // Reliability
-    const apiMetrics = await prisma.apiMetric.findMany();
+    const apiMetrics = await apiMetricFindMany();
     const totalCalls = apiMetrics.length || 1;
     const successCalls = apiMetrics.filter((m) => m.statusCode < 400).length;
     const errorCalls = totalCalls - successCalls;

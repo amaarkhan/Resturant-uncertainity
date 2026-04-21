@@ -66,6 +66,7 @@ Default ports:
 
 ## Demo Credentials
 - Owner: `karachi@example.com` / `owner123`
+- Additional owners: `weekend@example.com` / `owner123`, `uni@example.com` / `owner123`
 - Admin: `admin@example.com` / `admin123`
 
 ## Tests

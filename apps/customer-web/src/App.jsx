@@ -19,7 +19,7 @@ async function request(path, { method = "GET", body, token } = {}) {
 }
 
 export function App() {
-  const [email, setEmail] = useState("owner@example.com");
+  const [email, setEmail] = useState("karachi@example.com");
   const [password, setPassword] = useState("owner123");
   const [session, setSession] = useState(null);
   
