@@ -6,6 +6,7 @@ import { prisma } from "./db.js";
 import { auth, requireAdmin, signAccessToken } from "./auth.js";
 import { generateRecommendation } from "./recommendation.js";
 import { fetchContextSignals } from "./externalSignals.js";
+import { generateLlmReasonSummary } from "./llmInsights.js";
 import { buildWindowMetrics, decidePmfDirection, deltaPercent } from "./pmf.js";
 
 const app = express();
@@ -135,12 +136,20 @@ app.post("/api/v1/recommendations/generate", auth, async (req, res) => {
   };
 
   const result = generateRecommendation(restaurant.menuItems, context, settings);
+  const llmSummary = await generateLlmReasonSummary({
+    restaurant,
+    context,
+    settings,
+    items: result.items
+  });
+  const finalReasonSummary = llmSummary || result.reasonSummary;
+
   const run = await prisma.recommendationRun.create({
     data: {
       restaurantId,
       date,
       confidenceLevel: result.confidenceLevel,
-      reasonSummary: result.reasonSummary,
+      reasonSummary: finalReasonSummary,
       usedFallback: result.usedFallback,
       signalsUsed: JSON.stringify(context),
       items: {
@@ -163,6 +172,7 @@ app.post("/api/v1/recommendations/generate", auth, async (req, res) => {
     recommendationRunId: run.id,
     confidenceLevel: run.confidenceLevel,
     reasonSummary: run.reasonSummary,
+    insightSource: llmSummary ? "groq" : "rule_engine",
     items: run.items,
     signalsUsed: JSON.parse(run.signalsUsed),
     usedFallback: run.usedFallback

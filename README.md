@@ -41,6 +41,11 @@ copy services\api\.env.example services\api\.env
 - For Supabase: use the project Postgres connection string.
 - For local Postgres: use a local PostgreSQL URL.
 
+Optional (for LLM-generated short recommendation summaries):
+
+- Set `GROQ_API_KEY` in `services/api/.env`.
+- Optional model override via `GROQ_MODEL` (default: `llama-3.3-70b-versatile`).
+
 4. Sync schema and seed demo data.
 
 ```bash
@@ -84,7 +89,7 @@ npm run test
 - Customer project root: `apps/customer-web`
 - Admin project root: `apps/admin-web`
 4. Set Vercel env vars:
-- API: `DATABASE_URL`, `JWT_SECRET`, `PORT=4000`
+- API: `DATABASE_URL`, `JWT_SECRET`, `PORT=4000`, optional `GROQ_API_KEY`, `GROQ_MODEL`
 - Customer: `VITE_API_BASE=https://<your-api-domain>`
 - Admin: `VITE_API_BASE=https://<your-api-domain>`
 5. Run schema sync on Supabase before first production use:

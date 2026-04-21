@@ -7,6 +7,7 @@ import {
 
 const rawApiBase = import.meta.env.VITE_API_BASE?.trim();
 const API_BASE = rawApiBase ? `${rawApiBase.replace(/\/+$/, "")}/api/v1` : "/api/v1";
+const PRODUCT_NAME = "PrepPulse";
 
 async function request(path, { method = "GET", body, token } = {}) {
   let res;
@@ -282,7 +283,7 @@ export function App() {
             <div className="login-icon-wrap">
               <ShieldCheck size={36} className="text-primary" />
             </div>
-            <h1 className="text-2xl" style={{textAlign:'center'}}>Admin Portal</h1>
+            <h1 className="text-2xl" style={{textAlign:'center'}}>{PRODUCT_NAME} Admin Portal</h1>
             <p className="text-muted text-sm" style={{textAlign:'center'}}>Secure command center access</p>
           </div>
           {error && (
@@ -309,7 +310,7 @@ export function App() {
     <div className="app-layout">
       <aside className="sidebar">
         <div className="sidebar-logo">
-          <ShieldCheck className="text-primary" size={24} /> Admin Core
+          <ShieldCheck className="text-primary" size={24} /> {PRODUCT_NAME} Admin Core
         </div>
         <nav className="flex-col gap-2">
           <button className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>

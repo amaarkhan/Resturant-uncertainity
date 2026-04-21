@@ -3,6 +3,7 @@ import { Activity, Calendar, LogOut, CheckCircle, AlertCircle, TrendingUp, Refre
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
 const API_BASE = (import.meta.env.VITE_API_BASE || "http://localhost:4000") + "/api/v1";
+const PRODUCT_NAME = "PrepPulse";
 
 async function request(path, { method = "GET", body, token } = {}) {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -183,7 +184,7 @@ export function App() {
             <div className="login-icon-wrap">
               <Activity className="text-primary" size={32} />
             </div>
-            <h1 className="text-2xl mt-4">Kitchen Portal</h1>
+            <h1 className="text-2xl mt-4">{PRODUCT_NAME} Kitchen Portal</h1>
             <p className="text-muted text-sm">Sign in to manage your daily prep</p>
           </div>
           {error && <div className="error-toast"><AlertCircle size={16} /> {error}</div>}
@@ -203,7 +204,7 @@ export function App() {
     <div className="container">
       <div className="header">
         <div>
-          <h1 className="text-2xl flex-row"><Activity className="text-primary" /> Kitchen Dashboard</h1>
+          <h1 className="text-2xl flex-row"><Activity className="text-primary" /> {PRODUCT_NAME} Kitchen Dashboard</h1>
           <p className="text-sm text-muted">Smart prep for small restaurants</p>
         </div>
         <button className="btn btn-outline text-sm" onClick={() => setSession(null)}>
