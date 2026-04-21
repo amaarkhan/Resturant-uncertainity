@@ -42,6 +42,7 @@ def extract_pptx(path):
     return text
 
 files = os.listdir(CONTEXT_DIR)
+
 for file in files:
     path = os.path.join(CONTEXT_DIR, file)
     print(f"\n{'='*80}")
