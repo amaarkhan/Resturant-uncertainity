@@ -56,6 +56,33 @@ export function App() {
   const [dashboard, setDashboard] = useState(null);
   const [telemetryData, setTelemetryData] = useState(null);
 
+  const [newRestaurant, setNewRestaurant] = useState({
+    name: "",
+    city: "",
+    timezone: "Asia/Karachi",
+    operatingDays: "Mon,Tue,Wed,Thu,Fri,Sat,Sun",
+    weatherEnabled: true,
+    eventsEnabled: true,
+    weatherWeight: 1.0,
+    eventWeight: 1.0
+  });
+
+  const [newOwner, setNewOwner] = useState({
+    fullName: "",
+    email: "",
+    password: "",
+    restaurantId: ""
+  });
+
+  const [newDish, setNewDish] = useState({
+    restaurantId: "",
+    name: "",
+    unit: "plate",
+    baselinePrepQty: 50,
+    cost: 0,
+    price: 0
+  });
+
   // Modal states
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [activeRestaurant, setActiveRestaurant] = useState(null);
@@ -93,11 +120,19 @@ export function App() {
         const d = await request("/admin/restaurants", { token: session.accessToken });
         setRestaurants(d.restaurants || []);
       } else if (activeTab === "menuInfo") {
-        const d = await request("/admin/menu-items", { token: session.accessToken });
-        setMenuItems(d.menuItems || []);
+        const [menuData, restaurantData] = await Promise.all([
+          request("/admin/menu-items", { token: session.accessToken }),
+          request("/admin/restaurants", { token: session.accessToken })
+        ]);
+        setMenuItems(menuData.menuItems || []);
+        setRestaurants(restaurantData.restaurants || []);
       } else if (activeTab === "users") {
-        const d = await request("/admin/users", { token: session.accessToken });
-        setUsers(d.users || []);
+        const [userData, restaurantData] = await Promise.all([
+          request("/admin/users", { token: session.accessToken }),
+          request("/admin/restaurants", { token: session.accessToken })
+        ]);
+        setUsers(userData.users || []);
+        setRestaurants(restaurantData.restaurants || []);
       } else if (activeTab === "dashboard") {
         setDashboardOverview(null);
         setDashboard(null);
@@ -132,6 +167,106 @@ export function App() {
       showToast("Configuration saved successfully");
       setShowConfigModal(false);
       loadData();
+    } catch (err) {
+      showToast(err.message, true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createRestaurant = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const created = await request("/admin/restaurants", {
+        method: "POST",
+        token: session.accessToken,
+        body: {
+          ...newRestaurant,
+          weatherWeight: Number(newRestaurant.weatherWeight),
+          eventWeight: Number(newRestaurant.eventWeight)
+        }
+      });
+
+      setRestaurants((prev) => [created, ...prev]);
+      setNewOwner((prev) => ({ ...prev, restaurantId: created.id }));
+      setNewRestaurant({
+        name: "",
+        city: "",
+        timezone: "Asia/Karachi",
+        operatingDays: "Mon,Tue,Wed,Thu,Fri,Sat,Sun",
+        weatherEnabled: true,
+        eventsEnabled: true,
+        weatherWeight: 1.0,
+        eventWeight: 1.0
+      });
+      showToast("Restaurant created. You can now create its owner account.");
+    } catch (err) {
+      showToast(err.message, true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createOwnerAccount = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await request("/admin/users", {
+        method: "POST",
+        token: session.accessToken,
+        body: {
+          fullName: newOwner.fullName,
+          email: newOwner.email,
+          password: newOwner.password,
+          role: "OWNER_MANAGER",
+          restaurantId: newOwner.restaurantId
+        }
+      });
+
+      setNewOwner({
+        fullName: "",
+        email: "",
+        password: "",
+        restaurantId: ""
+      });
+
+      const d = await request("/admin/users", { token: session.accessToken });
+      setUsers(d.users || []);
+      showToast("Owner account created successfully.");
+    } catch (err) {
+      showToast(err.message, true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createDish = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const created = await request("/admin/menu-items", {
+        method: "POST",
+        token: session.accessToken,
+        body: {
+          restaurantId: newDish.restaurantId,
+          name: newDish.name,
+          unit: newDish.unit,
+          baselinePrepQty: Number(newDish.baselinePrepQty),
+          cost: Number(newDish.cost),
+          price: Number(newDish.price)
+        }
+      });
+
+      setMenuItems((prev) => [created, ...prev]);
+      setNewDish((prev) => ({
+        ...prev,
+        name: "",
+        baselinePrepQty: 50,
+        cost: 0,
+        price: 0
+      }));
+      showToast("Dish added successfully.");
     } catch (err) {
       showToast(err.message, true);
     } finally {
@@ -364,95 +499,375 @@ export function App() {
         )}
 
         {activeTab === 'restaurants' && (
-          <div className="card table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>Identity</th>
-                  <th>Location</th>
-                  <th>Signals Active</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {restaurants.map(r => (
-                  <tr key={r.id}>
-                    <td><strong>{r.name}</strong><br/><span className="text-muted text-sm">{r.id}</span></td>
-                    <td>{r.city} ({r.timezone})</td>
-                    <td>
-                      <div className="flex gap-2">
-                        {r.weatherEnabled ? <span className="badge badge-active">Weather</span> : <span className="badge badge-inactive">Weather</span>}
-                        {r.eventsEnabled ? <span className="badge badge-active">Event</span> : <span className="badge badge-inactive">Event</span>}
-                      </div>
-                    </td>
-                    <td>{r.active ? <span className="badge badge-active">Live</span> : <span className="badge badge-inactive">Paused</span>}</td>
-                    <td>
-                      <button className="btn btn-outline text-sm" style={{padding: '0.25rem 0.75rem'}} onClick={() => { setActiveRestaurant(r); setShowConfigModal(true); }}>
-                        <Settings size={14} /> Configure
-                      </button>
-                    </td>
+          <div className="flex-col gap-6">
+            <div className="card">
+              <h2 className="text-xl mb-4">Onboard New Restaurant</h2>
+              <form onSubmit={createRestaurant}>
+                <div className="grid-cols-2">
+                  <div className="form-group">
+                    <label>Restaurant Name</label>
+                    <input
+                      className="input"
+                      type="text"
+                      value={newRestaurant.name}
+                      onChange={(e) => setNewRestaurant((prev) => ({ ...prev, name: e.target.value }))}
+                      placeholder="Karachi Central Kitchen"
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>City</label>
+                    <input
+                      className="input"
+                      type="text"
+                      value={newRestaurant.city}
+                      onChange={(e) => setNewRestaurant((prev) => ({ ...prev, city: e.target.value }))}
+                      placeholder="Karachi"
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Timezone</label>
+                    <input
+                      className="input"
+                      type="text"
+                      value={newRestaurant.timezone}
+                      onChange={(e) => setNewRestaurant((prev) => ({ ...prev, timezone: e.target.value }))}
+                      placeholder="Asia/Karachi"
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Operating Days CSV</label>
+                    <input
+                      className="input"
+                      type="text"
+                      value={newRestaurant.operatingDays}
+                      onChange={(e) => setNewRestaurant((prev) => ({ ...prev, operatingDays: e.target.value }))}
+                      placeholder="Mon,Tue,Wed,Thu,Fri,Sat,Sun"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Weather Weight</label>
+                    <input
+                      className="input"
+                      type="number"
+                      step="0.1"
+                      value={newRestaurant.weatherWeight}
+                      onChange={(e) => setNewRestaurant((prev) => ({ ...prev, weatherWeight: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Event Weight</label>
+                    <input
+                      className="input"
+                      type="number"
+                      step="0.1"
+                      value={newRestaurant.eventWeight}
+                      onChange={(e) => setNewRestaurant((prev) => ({ ...prev, eventWeight: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="switch-group">
+                  <div>
+                    <div className="font-semibold text-main">Enable Weather Signals</div>
+                    <div className="text-muted text-sm">Apply weather-based recommendation adjustments</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={newRestaurant.weatherEnabled}
+                    onChange={(e) => setNewRestaurant((prev) => ({ ...prev, weatherEnabled: e.target.checked }))}
+                  />
+                </div>
+
+                <div className="switch-group">
+                  <div>
+                    <div className="font-semibold text-main">Enable Event Signals</div>
+                    <div className="text-muted text-sm">Apply event intensity and type effects</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={newRestaurant.eventsEnabled}
+                    onChange={(e) => setNewRestaurant((prev) => ({ ...prev, eventsEnabled: e.target.checked }))}
+                  />
+                </div>
+
+                <div className="flex justify-between mt-6">
+                  <span className="text-sm text-muted">Create restaurant first, then create owner account in Users tab.</span>
+                  <button type="submit" className="btn btn-primary" disabled={loading}>
+                    {loading ? <RefreshCw className="animate-spin" size={18} /> : "Create Restaurant"}
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <div className="card table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Identity</th>
+                    <th>Location</th>
+                    <th>Signals Active</th>
+                    <th>Status</th>
+                    <th>Actions</th>
                   </tr>
-                ))}
-                {restaurants.length === 0 && <tr><td colSpan="5" className="text-center text-muted">No restaurants deployed</td></tr>}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {restaurants.map(r => (
+                    <tr key={r.id}>
+                      <td><strong>{r.name}</strong><br/><span className="text-muted text-sm">{r.id}</span></td>
+                      <td>{r.city} ({r.timezone})</td>
+                      <td>
+                        <div className="flex gap-2">
+                          {r.weatherEnabled ? <span className="badge badge-active">Weather</span> : <span className="badge badge-inactive">Weather</span>}
+                          {r.eventsEnabled ? <span className="badge badge-active">Event</span> : <span className="badge badge-inactive">Event</span>}
+                        </div>
+                      </td>
+                      <td>{r.active ? <span className="badge badge-active">Live</span> : <span className="badge badge-inactive">Paused</span>}</td>
+                      <td>
+                        <button className="btn btn-outline text-sm" style={{padding: '0.25rem 0.75rem'}} onClick={() => { setActiveRestaurant(r); setShowConfigModal(true); }}>
+                          <Settings size={14} /> Configure
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {restaurants.length === 0 && <tr><td colSpan="5" className="text-center text-muted">No restaurants deployed</td></tr>}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
         {activeTab === 'users' && (
-          <div className="card table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>Identity</th>
-                  <th>Contact</th>
-                  <th>Role Assignment</th>
-                  <th>Restaurant Link</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map(u => (
-                  <tr key={u.id}>
-                    <td><strong>{u.fullName}</strong></td>
-                    <td>{u.email}</td>
-                    <td><span className="badge" style={{background: 'var(--bg-surface-hover)'}}>{u.role}</span></td>
-                    <td className="text-muted font-mono text-sm">{u.restaurantId || 'SYS_GLOBAL'}</td>
+          <div className="flex-col gap-6">
+            <div className="card">
+              <h2 className="text-xl mb-4">Create Owner Account</h2>
+              <form onSubmit={createOwnerAccount}>
+                <div className="grid-cols-2">
+                  <div className="form-group">
+                    <label>Owner Full Name</label>
+                    <input
+                      className="input"
+                      type="text"
+                      value={newOwner.fullName}
+                      onChange={(e) => setNewOwner((prev) => ({ ...prev, fullName: e.target.value }))}
+                      placeholder="Fatima Khan"
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Email</label>
+                    <input
+                      className="input"
+                      type="email"
+                      value={newOwner.email}
+                      onChange={(e) => setNewOwner((prev) => ({ ...prev, email: e.target.value }))}
+                      placeholder="owner@restaurant.com"
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Password</label>
+                    <input
+                      className="input"
+                      type="password"
+                      value={newOwner.password}
+                      onChange={(e) => setNewOwner((prev) => ({ ...prev, password: e.target.value }))}
+                      placeholder="At least 6 characters"
+                      minLength={6}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Restaurant</label>
+                    <select
+                      className="select"
+                      value={newOwner.restaurantId}
+                      onChange={(e) => setNewOwner((prev) => ({ ...prev, restaurantId: e.target.value }))}
+                      required
+                    >
+                      <option value="">Select a restaurant</option>
+                      {restaurants.map((restaurant) => (
+                        <option key={restaurant.id} value={restaurant.id}>
+                          {restaurant.name} ({restaurant.city})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex justify-between mt-6">
+                  <span className="text-sm text-muted">This creates an OWNER_MANAGER account scoped to one restaurant.</span>
+                  <button type="submit" className="btn btn-primary" disabled={loading || restaurants.length === 0}>
+                    {loading ? <RefreshCw className="animate-spin" size={18} /> : "Create Owner"}
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <div className="card table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Identity</th>
+                    <th>Contact</th>
+                    <th>Role Assignment</th>
+                    <th>Restaurant Link</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {users.map(u => (
+                    <tr key={u.id}>
+                      <td><strong>{u.fullName}</strong></td>
+                      <td>{u.email}</td>
+                      <td><span className="badge" style={{background: 'var(--bg-surface-hover)'}}>{u.role}</span></td>
+                      <td className="text-muted font-mono text-sm">{u.restaurantId || 'SYS_GLOBAL'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
         {activeTab === 'menuInfo' && (
-          <div className="card table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>Reference ID</th>
-                  <th>Nomenclature</th>
-                  <th>Unit</th>
-                  <th>Cost</th>
-                  <th>Price</th>
-                  <th>Baseline Prep Qty</th>
-                  <th>Link</th>
-                </tr>
-              </thead>
-              <tbody>
-                {menuItems.map(m => (
-                  <tr key={m.id}>
-                    <td className="text-muted font-mono">{m.id.slice(-6)}</td>
-                    <td><strong>{m.name}</strong></td>
-                    <td><span className="badge" style={{background: 'var(--bg-surface-hover)'}}>{m.unit}</span></td>
-                    <td className="text-muted">${m.cost?.toFixed(2)}</td>
-                    <td className="text-success">${m.price?.toFixed(2)}</td>
-                    <td>{m.baselinePrepQty}</td>
-                    <td className="text-muted font-mono text-sm">{m.restaurantId}</td>
+          <div className="flex-col gap-6">
+            <div className="card">
+              <h2 className="text-xl mb-4">Add Dish To Restaurant</h2>
+              <form onSubmit={createDish}>
+                <div className="grid-cols-2">
+                  <div className="form-group">
+                    <label>Restaurant</label>
+                    <select
+                      className="select"
+                      value={newDish.restaurantId}
+                      onChange={(e) => setNewDish((prev) => ({ ...prev, restaurantId: e.target.value }))}
+                      required
+                    >
+                      <option value="">Select a restaurant</option>
+                      {restaurants.map((restaurant) => (
+                        <option key={restaurant.id} value={restaurant.id}>
+                          {restaurant.name} ({restaurant.city})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Dish Name</label>
+                    <input
+                      className="input"
+                      type="text"
+                      value={newDish.name}
+                      onChange={(e) => setNewDish((prev) => ({ ...prev, name: e.target.value }))}
+                      placeholder="Chicken Biryani"
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Unit</label>
+                    <input
+                      className="input"
+                      type="text"
+                      value={newDish.unit}
+                      onChange={(e) => setNewDish((prev) => ({ ...prev, unit: e.target.value }))}
+                      placeholder="plate"
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Baseline Prep Qty</label>
+                    <input
+                      className="input"
+                      type="number"
+                      min="1"
+                      value={newDish.baselinePrepQty}
+                      onChange={(e) => setNewDish((prev) => ({ ...prev, baselinePrepQty: e.target.value }))}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Cost</label>
+                    <input
+                      className="input"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={newDish.cost}
+                      onChange={(e) => setNewDish((prev) => ({ ...prev, cost: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Price</label>
+                    <input
+                      className="input"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={newDish.price}
+                      onChange={(e) => setNewDish((prev) => ({ ...prev, price: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-between mt-6">
+                  <span className="text-sm text-muted">Each dish is attached to exactly one restaurant using restaurantId.</span>
+                  <button type="submit" className="btn btn-primary" disabled={loading || restaurants.length === 0}>
+                    {loading ? <RefreshCw className="animate-spin" size={18} /> : "Add Dish"}
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <div className="card table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Reference ID</th>
+                    <th>Nomenclature</th>
+                    <th>Unit</th>
+                    <th>Cost</th>
+                    <th>Price</th>
+                    <th>Baseline Prep Qty</th>
+                    <th>Restaurant</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {menuItems.map(m => {
+                    const restaurant = restaurants.find((r) => r.id === m.restaurantId);
+                    return (
+                      <tr key={m.id}>
+                        <td className="text-muted font-mono">{m.id.slice(-6)}</td>
+                        <td><strong>{m.name}</strong></td>
+                        <td><span className="badge" style={{background: 'var(--bg-surface-hover)'}}>{m.unit}</span></td>
+                        <td className="text-muted">${m.cost?.toFixed(2)}</td>
+                        <td className="text-success">${m.price?.toFixed(2)}</td>
+                        <td>{m.baselinePrepQty}</td>
+                        <td>
+                          <strong>{restaurant?.name || "Unknown"}</strong>
+                          <br />
+                          <span className="text-muted font-mono text-sm">{m.restaurantId}</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {menuItems.length === 0 && <tr><td colSpan="7" className="text-center text-muted">No dishes added yet</td></tr>}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </main>
