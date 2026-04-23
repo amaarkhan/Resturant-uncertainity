@@ -45,6 +45,9 @@ Optional (for LLM-generated short recommendation summaries):
 
 - Set `GROQ_API_KEY` in `services/api/.env`.
 - Optional model override via `GROQ_MODEL` (default: `llama-3.3-70b-versatile`).
+- Set `ENABLE_LLM_DECISION=true` to let the LLM generate per-dish quantities (with automatic fallback to rule engine if response is invalid/unavailable).
+- Optional guardrail: `LLM_QTY_MAX_SCALE` (default `4`) caps LLM recommendation to at most `baseline * scale` per item.
+- In LLM decision mode, response may include a shortlist of relevant dishes instead of all active menu items.
 
 4. Sync schema and seed demo data.
 
