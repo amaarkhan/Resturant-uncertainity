@@ -495,4 +495,112 @@ input[type="checkbox"]:hover { border-color: var(--primary); }
   .toast-fixed { left: 1rem; right: 1rem; max-width: none; }
   .tab-bar { overflow-x: auto; }
   .tab-btn { white-space: nowrap; padding: 0.75rem 1rem; font-size: 0.8rem; }
+  .customer-dish-item { grid-template-columns: 1fr !important; }
 }
+
+/* ══════════════════ Customer-Specific Styles ══════════════════ */
+
+.hero-section {
+  text-align: center;
+  padding: 2.5rem 1rem 1.5rem;
+  animation: fadeInDown 0.5s ease-out;
+}
+
+.hero-icon-wrap {
+  width: 84px;
+  height: 84px;
+  border-radius: var(--radius-xl);
+  background: linear-gradient(135deg, var(--primary-light), rgba(245, 158, 11, 0.08));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  box-shadow: 0 0 50px var(--primary-glow);
+  animation: iconGlow 3s ease-in-out infinite alternate;
+  border: 1px solid rgba(129, 140, 248, 0.15);
+}
+
+.selector-card {
+  border: 1px solid rgba(129, 140, 248, 0.1);
+}
+
+.recommendation-hero {
+  border-left: 3px solid var(--primary);
+  animation: cardEnter 0.4s ease-out both;
+}
+
+.ai-summary {
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  animation: fadeInUp 0.4s ease-out both;
+  animation-delay: 0.1s;
+}
+
+.ai-summary-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.context-strip {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg-surface-hover);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.customer-dish-item {
+  grid-template-columns: 1fr auto !important;
+  gap: 1.5rem !important;
+}
+
+.dish-name-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.dish-reason {
+  max-width: 480px;
+  line-height: 1.5;
+}
+
+.dish-qty-col {
+  text-align: center;
+  min-width: 100px;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 2.5rem 0;
+}
+
+.footer-note {
+  padding: 2rem 0 1rem;
+  opacity: 0.6;
+}
+
+.flex.justify-end {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.flex.justify-between {
+  display: flex;
+  justify-content: space-between;
+}
+
+.flex.gap-2 {
+  display: flex;
+  gap: 0.5rem;
+}
+

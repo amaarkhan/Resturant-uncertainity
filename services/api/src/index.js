@@ -679,6 +679,82 @@ app.get("/api/v1/admin/dashboard", auth, requireAdmin, async (req, res) => {
   res.json({ activeRestaurants, usageRate, errorCount: fallbackCount });
 });
 
+// ─── Customer Public Endpoints (no auth) ───
+
+app.get("/api/v1/customer/restaurants", async (req, res) => {
+  const restaurants = await prisma.restaurant.findMany({
+    where: { active: true },
+    select: { id: true, name: true, city: true },
+    orderBy: { name: "asc" }
+  });
+  res.json({ restaurants });
+});
+
+app.post("/api/v1/customer/recommendations", async (req, res) => {
+  const { restaurantId } = req.body || {};
+  if (!restaurantId) {
+    return res.status(400).json({ error: "restaurantId is required" });
+  }
+
+  const restaurant = await prisma.restaurant.findUnique({
+    where: { id: restaurantId },
+    include: { menuItems: { where: { active: true }, orderBy: { name: "asc" } } }
+  });
+
+  if (!restaurant || !restaurant.active) {
+    return res.status(404).json({ error: "Restaurant not found or inactive" });
+  }
+
+  if (restaurant.menuItems.length === 0) {
+    return res.status(400).json({ error: "No active menu items found for this restaurant" });
+  }
+
+  const date = new Date().toISOString().split("T")[0];
+  const context = await fetchContextSignals(restaurant.city, date);
+
+  const settings = {
+    weatherEnabled: restaurant.weatherEnabled,
+    eventsEnabled: restaurant.eventsEnabled,
+    weatherWeight: restaurant.weatherWeight,
+    eventWeight: restaurant.eventWeight
+  };
+
+  let result = generateRecommendation(restaurant.menuItems, context, settings);
+  const llmDecisionEnabled = process.env.ENABLE_LLM_DECISION === "true";
+
+  if (llmDecisionEnabled) {
+    const llmDecision = await generateLlmItemRecommendations({
+      restaurant, context, settings, menuItems: restaurant.menuItems
+    });
+    if (llmDecision) {
+      result = llmDecision;
+    }
+  }
+
+  // Always attempt LLM summary for richer customer-facing text
+  const llmSummary = await generateLlmReasonSummary({
+    restaurant, context, settings, items: result.items
+  });
+  if (llmSummary) {
+    result = { ...result, reasonSummary: llmSummary };
+  }
+
+  // Customer-friendly response shape — no run IDs, no debug fields
+  return res.json({
+    restaurant: { name: restaurant.name, city: restaurant.city },
+    date,
+    summary: result.reasonSummary,
+    confidence: result.confidenceLevel,
+    items: result.items.map((item) => ({
+      name: item.itemName,
+      recommendedQty: item.recommendedQty,
+      reason: item.reason
+    })),
+    weather: { type: context.weatherType || "unknown" },
+    groqAvailable: Boolean(process.env.GROQ_API_KEY)
+  });
+});
+
 app.use((err, req, res, next) => {
   const isDbUnavailable =
     err?.name === "PrismaClientInitializationError" ||
